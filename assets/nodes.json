@@ -1,0 +1,17 @@
+[
+  {"id": "A104_Door", "name": "A104 Class Room IT", "floor": 0, "x": 650.09125, "y": 357.49323},
+  {"id": "Cross-A-Ground", "name": "Crosspath Ground Foor Block A", "floor": 0, "x": 1025.8007, "y": 356.35471},
+  {"id": "Lobby_Centre", "name": "Lobby_Centre", "floor": 0, "x": 1024.6622, "y": 418.97296},
+  {"id": "A103_Door", "name": "HOD IT DEPT", "floor": 0, "x": 1118.0203, "y": 420.11145},
+  {"id": "A102_Door", "name": "IT FACULTY ROOM-1", "floor": 0, "x": 1335.4764, "y": 357.49323},
+  {"id": "A105_Door", "name": "A105 Class Room IT", "floor": 0, "x": 613.65881, "y": 357.49323},
+  {"id": "A101_Door", "name": "Boys Toilet-Block A Ground", "floor": 0, "x": 1624.6588, "y": 357.49323},
+  {"id": "porch_Blocka", "name": "porch_Blocka", "floor": 0, "x": 1028.0776, "y": 650.09119},
+  {"id": "Stairs_mid", "name": "Stairs halfway", "floor": 0, "x": 1025.8007, "y": 199.23984},
+  {"id": "stairs_left", "name": "stairs left halfway", "floor": 0, "x": 954.07428, "y": 200.37836},
+  {"id": "stairs_right", "name": "stairs right halfway", "floor": 0, "x": 1092.9729, "y": 200.37836},
+  {"id": "Turn_Ablock-Bblock-Left", "name": "Turn_Ablock-Bblock-Left", "floor": 0, "x": 391.64868, "y": 357.49323},
+  {"id": "ToBBlock_Left", "name": "B Block from A Block left path", "floor": 0, "x": 391.64868, "y": 117.26688},
+  {"id": "Turn_Ablock-Bblock-Right", "name": "Turn_Ablock-Bblock-Right", "floor": 0, "x": 1663.3683, "y": 357.49323},
+  {"id": "ToBBlock_Right", "name": "B Block from A Block right path", "floor": 0, "x": 1663.3683, "y": 118.40539}
+]
