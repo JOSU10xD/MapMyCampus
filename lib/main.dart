@@ -101,7 +101,7 @@ class _MapScreenState extends State<MapScreen>
 
   // Navigation control
   Timer? _navigationTimer;
-  double _navigationSpeed = 0.0;
+  // double _navigationSpeed = 0.0; // Removed
 
   // Reroute & off-path
   Timer? offPathTimer;
@@ -136,6 +136,9 @@ class _MapScreenState extends State<MapScreen>
 
   // Destination reached state
   bool _destinationReached = false;
+
+  // Navigation Mode
+  bool _isAutoMode = false; // false = Manual, true = Auto
 
   @override
   void initState() {
@@ -348,34 +351,8 @@ class _MapScreenState extends State<MapScreen>
 
   void _stopNavigation() {
     _navigationTimer?.cancel();
-    _navigationSpeed = 0;
+    // _navigationSpeed = 0;
     setState(() {});
-  }
-
-  // Called when marker is on a non-route segment (or no route). Starts reroute timer if we have target.
-  void _handleOffRoute(Offset projectedPoint) {
-    if (selectedTo == null) {
-      // no target: simply mark off route but do not reroute
-      isOffRoute = true;
-      offPathTimer?.cancel();
-      return;
-    }
-    // If we are already off-route, timer may be running — reset it
-    offPathTimer?.cancel();
-    isOffRoute = true;
-    offPathTimer = Timer(rerouteDelay, () {
-      // find nearest node to projectedPoint and compute route
-      final nearestNode = _findNearestNodeId(projectedPoint);
-      final newRoute = computePath(nearestNode, selectedTo!);
-      if (newRoute != null) {
-        setCurrentRoute(newRoute);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('No route available from current position')));
-      }
-      isOffRoute = false;
-      offPathTimer = null;
-    });
   }
 
   // Handle destination reached
@@ -410,8 +387,8 @@ class _MapScreenState extends State<MapScreen>
               Container(
                 width: 40,
                 height: 40,
-                decoration: BoxDecoration(
-                  color: const Color(0xFF6B73FF),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF6B73FF),
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
@@ -438,7 +415,7 @@ class _MapScreenState extends State<MapScreen>
               Text(
                 'You have successfully arrived at:',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   fontSize: 14,
                 ),
               ),
@@ -462,7 +439,7 @@ class _MapScreenState extends State<MapScreen>
               Text(
                 'Navigation has been stopped.',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 14,
                 ),
               ),
@@ -508,20 +485,6 @@ class _MapScreenState extends State<MapScreen>
         );
       },
     );
-  }
-
-  // find nearest node id to a map point
-  String _findNearestNodeId(Offset p) {
-    double best = double.infinity;
-    String bestId = nodes.keys.first;
-    for (var n in nodes.values) {
-      final d = _distance(p, Offset(n.x, n.y));
-      if (d < best) {
-        best = d;
-        bestId = n.id;
-      }
-    }
-    return bestId;
   }
 
   void setCurrentRoute(List<String> route) {
@@ -604,17 +567,25 @@ class _MapScreenState extends State<MapScreen>
     final dx = b.dx - a.dx;
     final dy = b.dy - a.dy;
 
-    final angle = atan2(dy, dx) - pi / 2;
+    // We want the segment vector (dx, dy) to point UP on the screen.
+    // Screen UP is -Y (angle -pi/2).
+    final segmentAngle = atan2(dy, dx);
+    final rotationAngle = -pi / 2 - segmentAngle;
 
     final screenSize = MediaQuery.of(context).size;
     final focalPoint = Offset(screenSize.width / 2, screenSize.height / 2);
 
+    // Get current scale, default to 1.0 if not set
     final currentMatrix = _controller.value;
+    final scale = currentMatrix.getMaxScaleOnAxis();
+
+    // Rebuild matrix from scratch to ensure marker is centered
+    // M = T(center) * R(angle) * S(scale) * T(-marker)
     final newMatrix = Matrix4.identity()
       ..translate(focalPoint.dx, focalPoint.dy)
-      ..rotateZ(-angle)
-      ..translate(-focalPoint.dx, -focalPoint.dy)
-      ..scale(currentMatrix[0]); // Keep the same scale
+      ..rotateZ(rotationAngle)
+      ..scale(scale)
+      ..translate(-markerMapPos.dx, -markerMapPos.dy);
 
     _controller.value = newMatrix;
   }
@@ -634,160 +605,564 @@ class _MapScreenState extends State<MapScreen>
     final double curScale = _currentScale();
     double targetScale = (curScale * factor).clamp(minScale, maxScale);
     if ((targetScale - curScale).abs() < 1e-9) return;
-    final double effectiveFactor = targetScale / curScale;
-    final Size screenSize = MediaQuery.of(context).size;
-    final Offset focal = Offset(
-        screenSize.width / 2,
-        (kToolbarHeight + 20) +
-            (screenSize.height - (kToolbarHeight + 20)) / 2);
-    final vm.Matrix4 t1 = vm.Matrix4.identity()
-      ..translate(-focal.dx, -focal.dy);
-    final vm.Matrix4 s = vm.Matrix4.identity()
-      ..scale(effectiveFactor, effectiveFactor, 1.0);
-    final vm.Matrix4 t2 = vm.Matrix4.identity()..translate(focal.dx, focal.dy);
-    final vm.Matrix4 newMatrix = t2 * s * t1 * _controller.value;
-    _controller.value = newMatrix;
+    
+    // We want to zoom while keeping the marker centered (since we are in navigation mode)
+    // If we are not navigating, we might want standard zoom. 
+    // But given the requirement "rotate map with arrow as its middle", 
+    // it implies the arrow (marker) is the anchor.
+    
+    final screenSize = MediaQuery.of(context).size;
+    final focalPoint = Offset(screenSize.width / 2, screenSize.height / 2);
+
+    // If we simply scale the matrix, we need to make sure we respect the current rotation and translation
+    // Re-calculating the matrix using _rotateMapToDirection logic with new scale is safest
+    // but _rotateMapToDirection relies on _currentSegment.
+    
+    if (_currentSegment != null) {
+       // We are navigating, so rebuild matrix with new scale
+       final a = _currentSegment!['a'] as Offset;
+       final b = _currentSegment!['b'] as Offset;
+       final dx = b.dx - a.dx;
+       final dy = b.dy - a.dy;
+       final segmentAngle = atan2(dy, dx);
+       final rotationAngle = -pi / 2 - segmentAngle;
+       
+       final newMatrix = Matrix4.identity()
+        ..translate(focalPoint.dx, focalPoint.dy)
+        ..rotateZ(rotationAngle)
+        ..scale(targetScale)
+        ..translate(-markerMapPos.dx, -markerMapPos.dy);
+       
+       _controller.value = newMatrix;
+    } else {
+       // Standard zoom if not navigating (fallback)
+       final double effectiveFactor = targetScale / curScale;
+       final Offset focal = Offset(
+          screenSize.width / 2,
+          (kToolbarHeight + 20) +
+              (screenSize.height - (kToolbarHeight + 20)) / 2);
+       final vm.Matrix4 t1 = vm.Matrix4.identity()
+        ..translate(-focal.dx, -focal.dy);
+       final vm.Matrix4 s = vm.Matrix4.identity()
+        ..scale(effectiveFactor, effectiveFactor, 1.0);
+       final vm.Matrix4 t2 = vm.Matrix4.identity()..translate(focal.dx, focal.dy);
+       final vm.Matrix4 newMatrix = t2 * s * t1 * _controller.value;
+       _controller.value = newMatrix;
+    }
   }
 
   void zoomIn() => zoomBy(1.25);
   void zoomOut() => zoomBy(1 / 1.25);
 
+  // Intersection state
+  bool _showTurnControls = false;
+  final List<String> _validTurnDirections = []; // 'left', 'right', 'straight'
+  String _correctTurnDirection = ''; // 'left', 'right', 'straight'
+  bool _ignoreNextUpRelease = false; // To prevent accidental straight selection
+
   // ------------ joystick control ------------
   void _startJoystick() {
     _joystickTimer?.cancel();
     _joystickTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
-      if (!_upPressed && !_downPressed && !_leftPressed && !_rightPressed) {
-        _navigationSpeed = 0;
-        return;
-      }
-
-      // If destination is reached, don't allow movement
+      // If destination is reached, allow backward movement only
       if (_destinationReached) {
-        _stopNavigation();
-        return;
+        if (!_downPressed) {
+           _stopNavigation();
+           return;
+        }
+        // If down pressed, we allow movement to potentially back away
       }
 
-      // If we have a current route, follow it
-      if (currentRoute.isNotEmpty &&
-          _currentRouteIndex < currentRoute.length - 1) {
-        _followRoute();
-      } else {
-        // Free movement mode (not following a route)
-        _moveFreely();
+      // If we have a current route
+      if (currentRoute.isNotEmpty) {
+        if (_isAutoMode) {
+           // Only move if the "Drive" button is held (reusing _upPressed)
+           if (_upPressed) {
+             _moveAutomaticallyOnRoute();
+           }
+        } else {
+           // Manual mode
+           if (!_upPressed && !_downPressed && !_leftPressed && !_rightPressed) {
+             return;
+           }
+           _moveManuallyOnRoute();
+        }
       }
     });
   }
 
-  void _followRoute() {
+
+
+  void _moveAutomaticallyOnRoute() {
     if (_currentRouteIndex >= currentRoute.length - 1) return;
 
     final nextNode = nodes[currentRoute[_currentRouteIndex + 1]]!;
+    final currentNode = nodes[currentRoute[_currentRouteIndex]]!;
+    
     final currentPos = markerMapPos;
     final targetPos = Offset(nextNode.x, nextNode.y);
+    final startPos = Offset(currentNode.x, currentNode.y);
 
-    // Calculate direction to next node
-    final dx = targetPos.dx - currentPos.dx;
-    final dy = targetPos.dy - currentPos.dy;
-    final distance = _distance(currentPos, targetPos);
-    final direction = Offset(dx / distance, dy / distance);
+    // Calculate direction along the segment
+    final dx = targetPos.dx - startPos.dx;
+    final dy = targetPos.dy - startPos.dy;
+    final segmentDist = _distance(startPos, targetPos);
+    
+    if (segmentDist == 0) return;
+    
+    final dirX = dx / segmentDist;
+    final dirY = dy / segmentDist;
 
-    // Move toward next node
-    const double speed = 2.0;
-    final newPos = Offset(
-      currentPos.dx + direction.dx * speed,
-      currentPos.dy + direction.dy * speed,
+    // Auto mode always moves forward
+    double moveSpeed = 2.0; 
+
+    // Calculate potential new position
+    var newPos = Offset(
+      currentPos.dx + dirX * moveSpeed,
+      currentPos.dy + dirY * moveSpeed,
     );
 
-    // Update angle based on movement direction
-    markerAngle = atan2(direction.dy, direction.dx) + pi / 2;
+    final distToTarget = _distance(currentPos, targetPos);
+       
+    // If we are close enough OR we overshot
+    if (distToTarget <= moveSpeed || _distance(newPos, startPos) > segmentDist) {
+      // We reached the node.
+      
+      // Check if this is the final destination
+      if (_currentRouteIndex >= currentRoute.length - 2) {
+         setState(() {
+           markerMapPos = targetPos;
+           markerAngle = atan2(dy, dx) + pi / 2;
+         });
+         _handleDestinationReached();
+         return;
+      }
 
+      // We are at an intermediate node.
+      // In AUTO mode, we simply advance to the next segment.
+      // The pathfinding already determined the correct sequence of nodes.
+      
+      double overshoot = moveSpeed - distToTarget;
+      if (overshoot < 0) overshoot = 0;
+      
+      // Advance segment immediately
+      _advanceSegment(); 
+      
+      // Apply overshoot to the NEW segment
+      if (_currentSegment != null) {
+          final newStart = _currentSegment!['a'] as Offset;
+          final newEnd = _currentSegment!['b'] as Offset;
+          final newDx = newEnd.dx - newStart.dx;
+          final newDy = newEnd.dy - newStart.dy;
+          final newLen = _distance(newStart, newEnd);
+          
+          if (newLen > 0) {
+            final newDirX = newDx / newLen;
+            final newDirY = newDy / newLen;
+            
+            final carriedPos = Offset(
+              newStart.dx + newDirX * overshoot,
+              newStart.dy + newDirY * overshoot
+            );
+            
+            setState(() {
+              markerMapPos = carriedPos;
+              markerAngle = atan2(newDy, newDx) + pi / 2;
+              _rotateMapToDirection();
+            });
+          }
+      }
+      return; 
+    } 
+
+    // Update position (moving along segment)
     setState(() {
       markerMapPos = newPos;
+      markerAngle = atan2(dy, dx) + pi / 2;
+      _rotateMapToDirection();
+    });
+  }
+
+  void _moveManuallyOnRoute() {
+    // If waiting for turn selection, don't move
+    if (_showTurnControls) return;
+
+    if (_currentRouteIndex >= currentRoute.length - 1) return;
+
+    final nextNode = nodes[currentRoute[_currentRouteIndex + 1]]!;
+    final currentNode = nodes[currentRoute[_currentRouteIndex]]!;
+    
+    final currentPos = markerMapPos;
+    final targetPos = Offset(nextNode.x, nextNode.y);
+    final startPos = Offset(currentNode.x, currentNode.y);
+
+    // Calculate direction along the segment
+    final dx = targetPos.dx - startPos.dx;
+    final dy = targetPos.dy - startPos.dy;
+    final segmentDist = _distance(startPos, targetPos);
+    
+    if (segmentDist == 0) return;
+    
+    final dirX = dx / segmentDist;
+    final dirY = dy / segmentDist;
+
+    // Determine movement direction based on input
+    double moveSpeed = 0.0;
+    if (_upPressed) moveSpeed = 2.0; // Human walking speed
+    if (_downPressed) moveSpeed = -2.0;
+
+    if (moveSpeed == 0) return;
+
+    // Calculate potential new position
+    var newPos = Offset(
+      currentPos.dx + dirX * moveSpeed,
+      currentPos.dy + dirY * moveSpeed,
+    );
+
+    // Check if we reached the target node (forward movement)
+    if (moveSpeed > 0) {
+       final distToTarget = _distance(currentPos, targetPos);
+       
+       // If we are close enough OR we overshot
+       if (distToTarget <= moveSpeed || _distance(newPos, startPos) > segmentDist) {
+         // We reached the node.
+         
+         // Check for intersection logic FIRST
+         // We need to know if we should stop or continue smoothly.
+         
+         // Check if this is the final destination
+         if (_currentRouteIndex >= currentRoute.length - 2) {
+            setState(() {
+              markerMapPos = targetPos;
+              markerAngle = atan2(dy, dx) + pi / 2;
+            });
+            _handleDestinationReached();
+            return;
+         }
+
+         final nodeId = currentRoute[_currentRouteIndex + 1];
+         // Check exits
+         final connectedEdges = edges.where((e) => e.from == nodeId).toList();
+         final incomingNodeId = currentRoute[_currentRouteIndex];
+         
+         // Filter valid exits and ensure uniqueness (handle duplicate edges)
+         final validExits = connectedEdges
+             .where((e) => e.to != incomingNodeId)
+             .map((e) => e.to)
+             .toSet()
+             .toList();
+
+         if (validExits.length == 1) {
+            // STRAIGHT PATH (or only one way to go).
+            // SMOOTH MOVEMENT: Advance segment and carry over the remaining distance.
+            
+            double overshoot = moveSpeed - distToTarget;
+            if (overshoot < 0) overshoot = 0; // Should not happen if logic is correct
+            
+            // Advance segment immediately
+            _advanceSegment(); // This updates _currentRouteIndex, _currentSegment, markerMapPos (to start of new), markerAngle
+            
+            // Now apply overshoot to the NEW segment
+            // _advanceSegment sets markerMapPos to the *start* of the new segment (which is the node we just reached)
+            
+            if (_currentSegment != null) {
+               final newStart = _currentSegment!['a'] as Offset;
+               final newEnd = _currentSegment!['b'] as Offset;
+               final newDx = newEnd.dx - newStart.dx;
+               final newDy = newEnd.dy - newStart.dy;
+               final newLen = _distance(newStart, newEnd);
+               
+               if (newLen > 0) {
+                 final newDirX = newDx / newLen;
+                 final newDirY = newDy / newLen;
+                 
+                 final carriedPos = Offset(
+                    newStart.dx + newDirX * overshoot,
+                    newStart.dy + newDirY * overshoot
+                 );
+                 
+                 setState(() {
+                    markerMapPos = carriedPos;
+                    // Angle is already updated by _advanceSegment, but let's ensure
+                    markerAngle = atan2(newDy, newDx) + pi / 2;
+                    // Update map rotation to keep marker centered and up
+                    _rotateMapToDirection();
+                 });
+               }
+            }
+            return; // Done for this frame
+         } else {
+            // INTERSECTION (Multiple choices).
+            // We MUST stop here.
+            setState(() {
+              markerMapPos = targetPos;
+              markerAngle = atan2(dy, dx) + pi / 2;
+              _rotateMapToDirection();
+            });
+            _checkForIntersection(nodeId);
+            return;
+         }
+       }
+    } 
+    
+    // Backward movement or normal forward movement (not reaching node yet)
+    // Constrain to segment
+    bool reachedStart = false;
+    
+    if (moveSpeed < 0) {
+       if (_distance(newPos, startPos) < reachNodeThreshold) {
+         newPos = startPos;
+         reachedStart = true;
+       }
+    }
+
+    // Update position
+    setState(() {
+      markerMapPos = newPos;
+      // Ensure arrow points along the path (forward)
+      markerAngle = atan2(dy, dx) + pi / 2;
+      // Keep map centered on marker
+      _rotateMapToDirection();
     });
 
-    // Check if we reached the next node
-    if (_distance(newPos, targetPos) < reachNodeThreshold) {
+    if (reachedStart) {
+       // Moved back to start of segment. 
+       if (_currentRouteIndex > 0) {
+         _currentRouteIndex--;
+         final prevNode = nodes[currentRoute[_currentRouteIndex]]!;
+         final currNode = nodes[currentRoute[_currentRouteIndex + 1]]!;
+         _currentSegment = {
+            'a': Offset(prevNode.x, prevNode.y),
+            'b': Offset(currNode.x, currNode.y),
+            'from': currentRoute[_currentRouteIndex],
+            'to': currentRoute[_currentRouteIndex + 1],
+         };
+         markerMapPos = startPos;
+         _rotateMapToDirection();
+       }
+    }
+  }
+
+  void _checkForIntersection(String nodeId, {bool dryRun = false}) {
+    // Find all edges connected to this node
+    final connectedEdges = edges.where((e) => e.from == nodeId).toList();
+    
+    // Filter out the edge we just came from
+    final incomingNodeId = currentRoute[_currentRouteIndex];
+    
+    // Use Set to handle duplicate edges
+    final validExitIds = connectedEdges
+        .where((e) => e.to != incomingNodeId)
+        .map((e) => e.to)
+        .toSet()
+        .toList();
+
+    if (validExitIds.isEmpty) return; // Dead end?
+
+    if (validExitIds.length == 1) {
+       // Only one way forward. Just advance the segment.
+       if (!dryRun) _advanceSegment();
+       return;
+    }
+
+    // Multiple choices (Intersection)
+    // Use addPostFrameCallback to avoid setState during build/layout
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      setState(() {
+        _showTurnControls = true;
+        // Ignore the release of the current 'up' press to prevent accidental selection
+        if (_upPressed) {
+          _ignoreNextUpRelease = true;
+        }
+        
+        _validTurnDirections.clear();
+        _correctTurnDirection = '';
+
+        // Calculate angles to determine Left/Right/Straight
+        // Incoming vector
+        final incomingNode = nodes[incomingNodeId]!;
+        final currentNode = nodes[nodeId]!;
+        final inDx = currentNode.x - incomingNode.x;
+        final inDy = currentNode.y - incomingNode.y;
+        final inAngle = atan2(inDy, inDx);
+
+        // Check bounds before accessing _currentRouteIndex + 2
+        String? nextRouteNodeId;
+        if (_currentRouteIndex + 2 < currentRoute.length) {
+          nextRouteNodeId = currentRoute[_currentRouteIndex + 2];
+        }
+
+        for (var exitId in validExitIds) {
+          final exitNode = nodes[exitId]!;
+          final outDx = exitNode.x - currentNode.x;
+          final outDy = exitNode.y - currentNode.y;
+          final outAngle = atan2(outDy, outDx);
+
+          // Calculate relative angle
+          var diff = outAngle - inAngle;
+          // Normalize to -pi to pi
+          while (diff > pi) diff -= 2 * pi;
+          while (diff <= -pi) diff += 2 * pi;
+
+          String direction = 'straight';
+          if (diff > 0.5) {
+            direction = 'right';
+          } else if (diff < -0.5) {
+            direction = 'left';
+          }
+          
+          // Store mapping or just check if it's the correct one
+          if (nextRouteNodeId != null && exitId == nextRouteNodeId) {
+            _correctTurnDirection = direction;
+          }
+          
+          _validTurnDirections.add(direction);
+        }
+      });
+    });
+  }
+
+  void _advanceSegment() {
+    if (_currentRouteIndex < currentRoute.length - 2) {
       _currentRouteIndex++;
-      if (_currentRouteIndex < currentRoute.length - 1) {
-        final nextNextNode = nodes[currentRoute[_currentRouteIndex + 1]]!;
+      final prevNode = nodes[currentRoute[_currentRouteIndex]]!;
+      final currNode = nodes[currentRoute[_currentRouteIndex + 1]]!;
+      
+      setState(() {
         _currentSegment = {
-          'a': targetPos,
-          'b': Offset(nextNextNode.x, nextNextNode.y),
+          'a': Offset(prevNode.x, prevNode.y),
+          'b': Offset(currNode.x, currNode.y),
           'from': currentRoute[_currentRouteIndex],
           'to': currentRoute[_currentRouteIndex + 1],
         };
-
+        // Snap to start of new segment (will be overwritten if smoothing is applied)
+        markerMapPos = Offset(prevNode.x, prevNode.y);
+        
+        // Update angle
+        final dx = currNode.x - prevNode.x;
+        final dy = currNode.y - prevNode.y;
+        markerAngle = atan2(dy, dx) + pi / 2;
+        
+        _showTurnControls = false;
+        
         // Rotate map to new direction
         _rotateMapToDirection();
-      } else {
-        // Reached final destination
-        _handleDestinationReached();
-      }
+      });
     }
-
-    // Keep camera focused on marker
-    _focusCameraOnMarker();
   }
 
-  void _moveFreely() {
-    // Find the nearest segment to the current position
-    final nearest = findNearestSegmentWithin(markerMapPos, snapRadius * 2);
-    if (nearest == null) return;
+  void _handleTurn(String direction) {
+    if (!_showTurnControls) return;
 
-    final a = nearest['a'] as Offset;
-    final b = nearest['b'] as Offset;
+    // Check bounds
+    if (_currentRouteIndex + 1 >= currentRoute.length) return;
 
-    // Calculate direction vector of the segment
-    final segmentDir = Offset(b.dx - a.dx, b.dy - a.dy);
-    final segmentLength = _distance(a, b);
-    final normalizedDir =
-        Offset(segmentDir.dx / segmentLength, segmentDir.dy / segmentLength);
+    final nodeId = currentRoute[_currentRouteIndex + 1];
+    final incomingNodeId = currentRoute[_currentRouteIndex];
+    final connectedEdges = edges.where((e) => e.from == nodeId).toList();
+    
+    // Use Set to handle duplicate edges
+    final validExitIds = connectedEdges
+        .where((e) => e.to != incomingNodeId)
+        .map((e) => e.to)
+        .toSet()
+        .toList();
+    
+    final incomingNode = nodes[incomingNodeId]!;
+    final currentNode = nodes[nodeId]!;
+    final inDx = currentNode.x - incomingNode.x;
+    final inDy = currentNode.y - incomingNode.y;
+    final inAngle = atan2(inDy, inDx);
 
-    // Calculate movement based on joystick input
-    Offset movementDir = Offset.zero;
-    if (_upPressed) movementDir = normalizedDir;
-    if (_downPressed) {
-      movementDir = Offset(-normalizedDir.dx, -normalizedDir.dy);
-    }
+    String? selectedExitId;
 
-    // Apply movement
-    const double speed = 2.0;
-    final movement = Offset(movementDir.dx * speed, movementDir.dy * speed);
-    final newPos =
-        Offset(markerMapPos.dx + movement.dx, markerMapPos.dy + movement.dy);
-    final projected = projectPointToSegment(newPos, a, b);
+    for (var exitId in validExitIds) {
+      final exitNode = nodes[exitId]!;
+      final outDx = exitNode.x - currentNode.x;
+      final outDy = exitNode.y - currentNode.y;
+      final outAngle = atan2(outDy, outDx);
 
-    // Update angle based on movement direction
-    if (movementDir != Offset.zero) {
-      markerAngle = atan2(movementDir.dy, movementDir.dx) + pi / 2;
-    }
+      var diff = outAngle - inAngle;
+      while (diff > pi) diff -= 2 * pi;
+      while (diff <= -pi) diff += 2 * pi;
 
-    setState(() {
-      markerMapPos = projected;
-    });
+      String dir = 'straight';
+      if (diff > 0.5) {
+        dir = 'right';
+      } else if (diff < -0.5) {
+        dir = 'left';
+      }
 
-    // Check if we're still on route
-    if (currentRoute.isNotEmpty) {
-      final routeProj = projectOntoRoute(markerMapPos);
-      if (routeProj == null || (routeProj['dist'] as double) > snapRadius) {
-        _handleOffRoute(markerMapPos);
-      } else {
-        isOffRoute = false;
-        offPathTimer?.cancel();
+      if (dir == direction) {
+        selectedExitId = exitId;
+        break;
       }
     }
 
-    // Keep camera focused on marker
-    _focusCameraOnMarker();
+    if (selectedExitId != null) {
+      // Check if this is the correct path
+      bool isCorrect = false;
+      if (_currentRouteIndex + 2 < currentRoute.length) {
+         if (currentRoute[_currentRouteIndex + 2] == selectedExitId) {
+           isCorrect = true;
+         }
+      }
+
+      if (isCorrect) {
+        _advanceSegment();
+      } else {
+        // Wrong turn! Reroute.
+        setState(() {
+          isOffRoute = true;
+          _showTurnControls = false; // Hide controls while rerouting
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Recalculating route...'),
+            duration: Duration(seconds: 1),
+          )
+        );
+
+        // Compute new path from the selected node to destination
+        final newPath = computePath(selectedExitId, selectedTo!);
+        if (newPath != null) {
+           setCurrentRoute(newPath);
+           isOffRoute = false;
+        }
+      }
+    }
   }
 
   void _handleJoystickButton(bool pressed, String direction) {
     // Don't allow joystick input if destination is reached
-    if (_destinationReached) return;
+    // Don't allow joystick input if destination is reached
+    // if (_destinationReached) return; // Removed to allow backward movement
+
+    // Handle turn buttons (Left/Right)
+    if ((direction == 'left' || direction == 'right') && _showTurnControls) {
+       if (!pressed) { // On release (tap)
+         _handleTurn(direction);
+       }
+       return;
+    }
+
+    bool shouldHandleStraight = false;
 
     setState(() {
       switch (direction) {
         case 'up':
+          if (_showTurnControls && _validTurnDirections.contains('straight')) {
+             if (!pressed) {
+                // On release
+                if (_ignoreNextUpRelease) {
+                  _ignoreNextUpRelease = false;
+                } else {
+                  shouldHandleStraight = true;
+                }
+             }
+          }
           _upPressed = pressed;
           break;
         case 'down':
@@ -802,6 +1177,10 @@ class _MapScreenState extends State<MapScreen>
       }
     });
 
+    if (shouldHandleStraight) {
+      _handleTurn('straight');
+    }
+
     if (pressed) {
       _startJoystick();
     } else if (!_upPressed &&
@@ -809,7 +1188,7 @@ class _MapScreenState extends State<MapScreen>
         !_leftPressed &&
         !_rightPressed) {
       _joystickTimer?.cancel();
-      _navigationSpeed = 0;
+      // _navigationSpeed = 0;
     }
   }
 
@@ -840,12 +1219,12 @@ class _MapScreenState extends State<MapScreen>
                 onChanged: (value) => _username = value,
               ),
               const SizedBox(height: 16),
-              TextField(
-                decoration: const InputDecoration(
+              const TextField(
+                decoration: InputDecoration(
                   labelText: 'Password',
                   labelStyle: TextStyle(color: Colors.white70),
                 ),
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: Colors.white),
                 obscureText: true,
               ),
             ],
@@ -915,6 +1294,36 @@ class _MapScreenState extends State<MapScreen>
             title: const Text('Profile', style: TextStyle(color: Colors.white)),
             onTap: () {},
           ),
+          ExpansionTile(
+            leading: const Icon(Icons.tune, color: Colors.white70),
+            title: const Text('Navigation Mode', style: TextStyle(color: Colors.white)),
+            children: [
+              RadioListTile<bool>(
+                title: const Text('Manual (Joystick)', style: TextStyle(color: Colors.white)),
+                value: false,
+                groupValue: _isAutoMode,
+                activeColor: const Color(0xFF6B73FF),
+                onChanged: (bool? value) {
+                  setState(() {
+                    _isAutoMode = value!;
+                  });
+                  Navigator.pop(context); // Close drawer
+                },
+              ),
+              RadioListTile<bool>(
+                title: const Text('Auto Navigation', style: TextStyle(color: Colors.white)),
+                value: true,
+                groupValue: _isAutoMode,
+                activeColor: const Color(0xFF6B73FF),
+                onChanged: (bool? value) {
+                  setState(() {
+                    _isAutoMode = value!;
+                  });
+                  Navigator.pop(context); // Close drawer
+                },
+              ),
+            ],
+          ),
           ListTile(
             leading: const Icon(Icons.history, color: Colors.white70),
             title: const Text('Route History',
@@ -950,6 +1359,54 @@ class _MapScreenState extends State<MapScreen>
     // Hide joystick when destination is reached
     if (_destinationReached) return const SizedBox.shrink();
 
+    // Auto Mode: Show a single "Drive" button
+    if (_isAutoMode) {
+      return Positioned(
+        right: 40,
+        bottom: 40,
+        child: GestureDetector(
+          onTapDown: (_) {
+            setState(() {
+              _upPressed = true;
+            });
+            _startJoystick();
+          },
+          onTapUp: (_) {
+            setState(() {
+              _upPressed = false;
+            });
+            _joystickTimer?.cancel();
+          },
+          onTapCancel: () {
+            setState(() {
+              _upPressed = false;
+            });
+            _joystickTimer?.cancel();
+          },
+          child: Container(
+            width: 80,
+            height: 80,
+            decoration: BoxDecoration(
+              color: const Color(0xFF6B73FF),
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.arrow_upward,
+              color: Colors.white,
+              size: 40,
+            ),
+          ),
+        ),
+      );
+    }
+
     return Positioned(
       right: 20,
       bottom: 100,
@@ -967,11 +1424,11 @@ class _MapScreenState extends State<MapScreen>
               decoration: BoxDecoration(
                 color: _upPressed
                     ? const Color(0xFF6B73FF)
-                    : const Color(0xFF6B73FF).withOpacity(0.5),
+                    : const Color(0xFF6B73FF).withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(35),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     blurRadius: 6,
                     offset: const Offset(0, 3),
                   ),
@@ -982,62 +1439,83 @@ class _MapScreenState extends State<MapScreen>
             ),
           ),
           const SizedBox(height: 15),
-          // Left/Right buttons
-          Row(
-            children: [
-              GestureDetector(
-                onTapDown: (_) => _handleJoystickButton(true, 'left'),
-                onTapUp: (_) => _handleJoystickButton(false, 'left'),
-                onTapCancel: () => _handleJoystickButton(false, 'left'),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: _leftPressed
-                        ? const Color(0xFF6B73FF)
-                        : const Color(0xFF6B73FF).withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(35),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+          // Left/Right buttons (only show if needed)
+          if (_showTurnControls)
+            Row(
+              children: [
+                if (_validTurnDirections.contains('left'))
+                  GestureDetector(
+                    onTapDown: (_) => _handleJoystickButton(true, 'left'),
+                    onTapUp: (_) => _handleJoystickButton(false, 'left'),
+                    onTapCancel: () => _handleJoystickButton(false, 'left'),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        color: _leftPressed
+                            ? const Color(0xFF6B73FF)
+                            : const Color(0xFF6B73FF).withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(35),
+                        boxShadow: [
+                          if (_correctTurnDirection == 'left')
+                            BoxShadow(
+                              color: const Color(0xFF6B73FF).withValues(alpha: 0.8),
+                              blurRadius: 12,
+                              spreadRadius: 2,
+                            ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                        border: _correctTurnDirection == 'left'
+                            ? Border.all(color: Colors.white, width: 2)
+                            : null,
                       ),
-                    ],
+                      child: const Icon(Icons.arrow_back,
+                          color: Colors.white, size: 36),
+                    ),
                   ),
-                  child: const Icon(Icons.arrow_back,
-                      color: Colors.white, size: 36),
-                ),
-              ),
-              const SizedBox(width: 15),
-              GestureDetector(
-                onTapDown: (_) => _handleJoystickButton(true, 'right'),
-                onTapUp: (_) => _handleJoystickButton(false, 'right'),
-                onTapCancel: () => _handleJoystickButton(false, 'right'),
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 150),
-                  width: 70,
-                  height: 70,
-                  decoration: BoxDecoration(
-                    color: _rightPressed
-                        ? const Color(0xFF6B73FF)
-                        : const Color(0xFF6B73FF).withOpacity(0.5),
-                    borderRadius: BorderRadius.circular(35),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.3),
-                        blurRadius: 6,
-                        offset: const Offset(0, 3),
+                const SizedBox(width: 15),
+                if (_validTurnDirections.contains('right'))
+                  GestureDetector(
+                    onTapDown: (_) => _handleJoystickButton(true, 'right'),
+                    onTapUp: (_) => _handleJoystickButton(false, 'right'),
+                    onTapCancel: () => _handleJoystickButton(false, 'right'),
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
+                      width: 70,
+                      height: 70,
+                      decoration: BoxDecoration(
+                        color: _rightPressed
+                            ? const Color(0xFF6B73FF)
+                            : const Color(0xFF6B73FF).withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(35),
+                        boxShadow: [
+                          if (_correctTurnDirection == 'right')
+                            BoxShadow(
+                              color: const Color(0xFF6B73FF).withValues(alpha: 0.8),
+                              blurRadius: 12,
+                              spreadRadius: 2,
+                            ),
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.3),
+                            blurRadius: 6,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                        border: _correctTurnDirection == 'right'
+                            ? Border.all(color: Colors.white, width: 2)
+                            : null,
                       ),
-                    ],
+                      child: const Icon(Icons.arrow_forward,
+                          color: Colors.white, size: 36),
+                    ),
                   ),
-                  child: const Icon(Icons.arrow_forward,
-                      color: Colors.white, size: 36),
-                ),
-              ),
-            ],
-          ),
+              ],
+            ),
           const SizedBox(height: 15),
           // Down button
           GestureDetector(
@@ -1051,11 +1529,11 @@ class _MapScreenState extends State<MapScreen>
               decoration: BoxDecoration(
                 color: _downPressed
                     ? const Color(0xFF6B73FF)
-                    : const Color(0xFF6B73FF).withOpacity(0.5),
+                    : const Color(0xFF6B73FF).withValues(alpha: 0.5),
                 borderRadius: BorderRadius.circular(35),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     blurRadius: 6,
                     offset: const Offset(0, 3),
                   ),
@@ -1085,7 +1563,7 @@ class _MapScreenState extends State<MapScreen>
               borderRadius: BorderRadius.circular(25),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 6,
                   offset: const Offset(0, 3),
                 ),
@@ -1106,7 +1584,7 @@ class _MapScreenState extends State<MapScreen>
               borderRadius: BorderRadius.circular(25),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 6,
                   offset: const Offset(0, 3),
                 ),
@@ -1127,7 +1605,7 @@ class _MapScreenState extends State<MapScreen>
               borderRadius: BorderRadius.circular(25),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 6,
                   offset: const Offset(0, 3),
                 ),
@@ -1189,7 +1667,7 @@ class _MapScreenState extends State<MapScreen>
               color: const Color(0xFF1E1E1E),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.3),
+                  color: Colors.black.withValues(alpha: 0.3),
                   blurRadius: 8,
                   offset: const Offset(0, 4),
                 ),
@@ -1251,7 +1729,7 @@ class _MapScreenState extends State<MapScreen>
                     ),
                     boxShadow: [
                       BoxShadow(
-                        color: const Color(0xFF6B73FF).withOpacity(0.4),
+                        color: const Color(0xFF6B73FF).withValues(alpha: 0.4),
                         blurRadius: 8,
                         offset: const Offset(0, 4),
                       ),
@@ -1307,7 +1785,7 @@ class _MapScreenState extends State<MapScreen>
                     : const Color(0x446B73FF),
                 border: Border(
                   bottom: BorderSide(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.white.withValues(alpha: 0.1),
                     width: 1,
                   ),
                 ),
@@ -1342,25 +1820,25 @@ class _MapScreenState extends State<MapScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: const Color(0xFF4CAF50).withOpacity(0.2),
+                color: const Color(0xFF4CAF50).withValues(alpha: 0.2),
                 border: Border(
                   bottom: BorderSide(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.white.withValues(alpha: 0.1),
                     width: 1,
                   ),
                 ),
               ),
-              child: Row(
+              child: const Row(
                 children: [
                   Icon(Icons.check_circle,
-                      color: const Color(0xFF4CAF50), size: 20),
-                  const SizedBox(width: 8),
+                      color: Color(0xFF4CAF50), size: 20),
+                  SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       'Destination Reached!',
                       style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: const Color(0xFF4CAF50)),
+                          color: Color(0xFF4CAF50)),
                     ),
                   ),
                 ],
@@ -1406,9 +1884,9 @@ class _MapScreenState extends State<MapScreen>
                               color: _destinationReached
                                   ? const Color(0xFF4CAF50)
                                   : Colors.white,
-                              boxShadow: [
+                              boxShadow: const [
                                 BoxShadow(
-                                  color: const Color.fromRGBO(0, 0, 0, 0.4),
+                                  color: Color.fromRGBO(0, 0, 0, 0.4),
                                   blurRadius: 6,
                                   spreadRadius: 1,
                                 )
@@ -1424,7 +1902,7 @@ class _MapScreenState extends State<MapScreen>
                             ),
                             child: Center(
                               child: Icon(
-                                Icons.navigation,
+                                Icons.arrow_upward,
                                 size: 24,
                                 color: isOffRoute
                                     ? Colors.orange
@@ -1495,10 +1973,11 @@ class _MapPainter extends CustomPainter {
         final id = currentRoute[i];
         if (!nodes.containsKey(id)) continue;
         final p = Offset(nodes[id]!.x, nodes[id]!.y);
-        if (i == 0)
+        if (i == 0) {
           path.moveTo(p.dx, p.dy);
-        else
+        } else {
           path.lineTo(p.dx, p.dy);
+        }
       }
       canvas.drawPath(path, paintRoute);
     }
