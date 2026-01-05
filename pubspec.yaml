@@ -1,11 +1,11 @@
 name: campus_map
 description: "A new Flutter project."
-publish_to: 'none'
+publish_to: "none"
 
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0' # Updated for modern Flutter versions
+  sdk: ">=3.0.0 <4.0.0" # Updated for modern Flutter versions
 
 dependencies:
   flutter:
@@ -27,3 +27,6 @@ flutter:
     - assets/A_Block_Ground.svg
     - assets/nodes.json
     - assets/edges.json
+    - assets/A-BLOCK_first.svg
+    - assets/first_floor_nodes.json
+    - assets/first_floor_edges.json
