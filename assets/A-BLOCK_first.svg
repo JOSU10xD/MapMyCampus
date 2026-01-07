@@ -34,15 +34,15 @@
      inkscape:pageopacity="0"
      inkscape:pagecheckerboard="0"
      inkscape:deskcolor="#505050"
-     inkscape:zoom="0.95912495"
-     inkscape:cx="707.41565"
-     inkscape:cy="288.28361"
+     inkscape:zoom="2.712815"
+     inkscape:cx="429.07459"
+     inkscape:cy="-647.85103"
      inkscape:window-width="1920"
      inkscape:window-height="1051"
      inkscape:window-x="-9"
      inkscape:window-y="-9"
      inkscape:window-maximized="1"
-     inkscape:current-layer="g1" />
+     inkscape:current-layer="layer2" />
   <g
      inkscape:groupmode="layer"
      inkscape:label="Image"
@@ -154,6 +154,30 @@
        inkscape:label="Crosspath Right First Floor Block A"
        rx="6.8309999"
        ry="6.8310809" />
+    <ellipse
+       style="fill:#000000"
+       id="circle1"
+       cx="1025.8007"
+       cy="213.31517"
+       inkscape:label="Stairs halfway-second"
+       rx="6.8309999"
+       ry="6.8310809" />
+    <ellipse
+       style="fill:#000000"
+       id="circle2"
+       cx="953.8136"
+       cy="213.67172"
+       inkscape:label="stairs left halfway-second"
+       rx="6.8309999"
+       ry="6.8310809" />
+    <ellipse
+       style="fill:#000000"
+       id="ellipse2"
+       cx="1093.4943"
+       cy="213.93237"
+       inkscape:label="stairs right halfway-second"
+       rx="6.8309999"
+       ry="6.8310809" />
   </g>
   <g
      inkscape:groupmode="layer"
@@ -224,6 +248,21 @@
        style="fill:#000000;stroke-width:1.33778"
        d="m 1026.0518,356.73914 65.9994,0.2175"
        id="Cross-A-First___Crossright-A-First"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:#000000"
+       d="m 1092.4517,214.09715 -67.1723,-0.56925"
+       id="stairs_right_halfway-second___Stairs_halfway-second"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:#000000"
+       d="m 953.50507,214.1451 72.29563,-1.13851"
+       id="stairs_left_halfway-second___Stairs_halfway-second"
+       sodipodi:nodetypes="cc" />
+    <path
+       style="fill:#000000;stroke-width:0.365995"
+       d="m 1025.7446,356.83009 -0.6019,-143.00823"
+       id="stairs_halfway-second___Crosspath_First_Floor_Block_A"
        sodipodi:nodetypes="cc" />
   </g>
 </svg>

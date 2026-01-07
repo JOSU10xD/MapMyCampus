@@ -1,5 +1,5 @@
 // lib/main.dart
-/// This is the main entry point for the Campus Navigation application.
+// This is the main entry point for the Campus Navigation application.
 /// It sets up the Flutter environment, initializes the app theme, and launches the [MapScreen].
 /// 
 /// Key features include:
@@ -204,11 +204,18 @@ class _MapScreenState extends State<MapScreen>
 
   // --- Destination State ---
   bool _destinationReached = false;
-  List<Map<String, dynamic>> _routeHistory = [];
+  final List<Map<String, dynamic>> _routeHistory = [];
 
   // --- Navigation Mode ---
   /// Toggle between Manual (Joystick) and Automatic navigation.
+  // --- Navigation Mode ---
+  /// Toggle between Manual (Joystick) and Automatic navigation.
   bool _isAutoMode = true;
+  double _navigationSpeed = 3.0; // Default speed 3.0
+
+  /// Current smoothed rotation of the camera (radians).
+  /// Used to interpolate rotation for smoother turns.
+  double? _currentCameraRotation;
 
   // [Method] initState() is called once when this state object is inserted into the tree.
   // Perfect for initialization that depends on 'this' or 'context'.
@@ -257,18 +264,33 @@ class _MapScreenState extends State<MapScreen>
         jsonDecode(await rootBundle.loadString('assets/first_floor_edges.json'))
             as List;
 
-    // --- 3. Process Nodes ---
+    // --- 3. Load Second Floor Data ---
+    final secondNodesJson =
+        jsonDecode(await rootBundle.loadString('assets/second_floor_nodes.json'))
+            as List;
+    final secondEdgesJson =
+        jsonDecode(await rootBundle.loadString('assets/second_floor_edges.json'))
+            as List;
+
+    // --- 4. Process Nodes ---
     // Helper closure to process raw JSON node data.
-    // Adds a prefix to IDs to distinguish between floors (e.g., G_101 vs F1_101).
+    // Adds a prefix to IDs to distinguish between floors (e.g., G_101 vs F1_101, F2_101).
     void addNodes(List data, String prefix, int floorOverride) {
-      final suffix = floorOverride == 0 ? ' (G)' : ' (1F)'; // Suffix for display name
+      String suffix;
+      if (floorOverride == 0) {
+        suffix = ' (G)';
+      } else if (floorOverride == 1) {
+        suffix = ' (1F)';
+      } else {
+        suffix = ' (2F)';
+      }
       
       for (var n in data) {
         final id = '$prefix${n['id']}';
         nodes[id] = Node(
           id: id,
-          name: (n['name'] ?? id) + suffix, // Use ID as name if name is missing
-          x: (n['x'] as num).toDouble(), // Ensure double precision
+          name: (n['name'] ?? id) + suffix, 
+          x: (n['x'] as num).toDouble(), 
           y: (n['y'] as num).toDouble(),
           floor: floorOverride,
         );
@@ -278,8 +300,9 @@ class _MapScreenState extends State<MapScreen>
     // Process nodes for each floor with appropriate prefixes
     addNodes(groundNodesJson, 'G_', 0);
     addNodes(firstNodesJson, 'F1_', 1);
+    addNodes(secondNodesJson, 'F2_', 2);
 
-    // --- 4. Process Edges ---
+    // --- 5. Process Edges ---
     // Helper to process edges with prefix.
     void addEdges(List data, String prefix) {
       for (var e in data) {
@@ -293,22 +316,31 @@ class _MapScreenState extends State<MapScreen>
 
     addEdges(groundEdgesJson, 'G_');
     addEdges(firstEdgesJson, 'F1_');
+    addEdges(secondEdgesJson, 'F2_');
 
-    // --- 5. Synthesize Vertical Edges (Stairs) ---
-    // Connects corresponding stair nodes between floors (e.g., G_Stairs_mid <-> F1_Stairs_mid).
-    // We assume the IDs in the JSON files match (e.g. "Stairs_mid").
+    // --- 6. Synthesize Vertical Edges (Stairs) ---
+    // A. Ground <-> First Floor (Matches by ID suffix 'Stairs_mid', etc.)
     final connectorIds = ['Stairs_mid', 'stairs_left', 'stairs_right'];
     for (var cid in connectorIds) {
       final gId = 'G_$cid';
       final f1Id = 'F1_$cid';
       if (nodes.containsKey(gId) && nodes.containsKey(f1Id)) {
-        // Add bidirectional edge with cost (walking up/down stairs).
         edges.add(Edge(from: gId, to: f1Id, cost: 50.0));
         edges.add(Edge(from: f1Id, to: gId, cost: 50.0));
       }
     }
 
-    // --- 6. Make Graph Undirected ---
+    // B. First Floor <-> Second Floor
+    // Explicit connection: F1 Stairs Node <-> F2 Stairs Node
+    const f1Connector = 'F1_Stairs_to_Second';
+    const f2Connector = 'F2_Stairs_mid_Second';
+    
+    if (nodes.containsKey(f1Connector) && nodes.containsKey(f2Connector)) {
+      edges.add(Edge(from: f1Connector, to: f2Connector, cost: 60.0));
+      edges.add(Edge(from: f2Connector, to: f1Connector, cost: 60.0));
+    }
+
+    // --- 7. Make Graph Undirected ---
     // Add mirrored edges for every existing edge to allow two-way travel.
     final mirrored = <Edge>[];
     for (var e in edges) {
@@ -316,19 +348,14 @@ class _MapScreenState extends State<MapScreen>
     }
     edges.addAll(mirrored);
 
-    // --- 7. Build Geometric Segments ---
-    // These are used for "snapping" the user's click/tap to the nearest path.
-    // We map every edge to a geometric line segment.
-    // [Keyword] 'map' transforms each element in the list.
-    // [Keyword] 'whereType' filters the list to only include items of the specified type (removing nulls).
-    // [Method] 'toList()' collects the iterable results into a new List.
+    // --- 8. Build Geometric Segments ---
+    // used for "snapping"
     segments = edges
         .map((e) {
           final nodeA = nodes[e.from]!;
           final nodeB = nodes[e.to]!;
           
           // Only create geometric segment if both nodes are on the same floor.
-          // We don't want to snap to a "vertical" stair edge while walking on a flat map.
           if (nodeA.floor == nodeB.floor) {
             return {
               'from': e.from,
@@ -338,13 +365,12 @@ class _MapScreenState extends State<MapScreen>
               'floor': nodeA.floor
             };
           }
-          return null; // Ignore cross-floor edges for snapping
+          return null; 
         })
-        .whereType<Map<String, dynamic>>() // Filter out nulls
+        .whereType<Map<String, dynamic>>() 
         .toList();
 
-    // --- 8. Set Initial Position ---
-    // Find a nice start node on Ground floor (prefer 'G_A104_Door').
+    // --- 9. Set Initial Position ---
     if (nodes.containsKey('G_A104_Door')) {
       final start = nodes['G_A104_Door']!;
       markerMapPos = Offset(start.x, start.y);
@@ -354,13 +380,16 @@ class _MapScreenState extends State<MapScreen>
       final first = nodes.values.first;
       markerMapPos = Offset(first.x, first.y);
       currentFloor = first.floor;
-      currentSvg = currentFloor == 0
-          ? 'assets/A_Block_Ground.svg'
-          : 'assets/A-BLOCK_first.svg';
+      currentSvg = _getSvgForFloor(currentFloor);
     }
-    // [Method] 'setState' notifies the framework that the internal state of this object has changed.
-    // This triggers the 'build' method to run again, updating the UI.
     setState(() {});
+  }
+
+  String _getSvgForFloor(int floor) {
+    if (floor == 0) return 'assets/A_Block_Ground.svg';
+    if (floor == 1) return 'assets/A-BLOCK_first.svg';
+    if (floor == 2) return 'assets/A-BLOCK-second.svg';
+    return '';
   }
 
   // ------------ geometry helpers ------------
@@ -794,7 +823,7 @@ class _MapScreenState extends State<MapScreen>
   }
 
   /// Rotates the map so that the forward path direction points UP.
-  /// This implements the "Heads-Up" navigation style.
+  /// This implements the "Heads-Up" navigation style with smoothing.
   void _rotateMapToDirection() {
     if (_currentSegment == null) return;
 
@@ -806,7 +835,21 @@ class _MapScreenState extends State<MapScreen>
     // We want the segment vector (dx, dy) to point UP on the screen.
     // Screen UP is -Y (angle -pi/2).
     final segmentAngle = atan2(dy, dx);
-    final rotationAngle = -pi / 2 - segmentAngle;
+    final targetRotation = -pi / 2 - segmentAngle;
+
+    // Initialize if null
+    _currentCameraRotation ??= targetRotation;
+
+    // Smoothly interpolate towards target
+    // Calculate shortest angular difference
+    double diff = targetRotation - _currentCameraRotation!;
+    // Normalize diff to [-pi, pi]
+    while (diff > pi) diff -= 2 * pi;
+    while (diff <= -pi) diff += 2 * pi;
+
+    // Apply smoothing factor (lower = smoother/slower)
+    const double smoothingFactor = 0.08; 
+    _currentCameraRotation = _currentCameraRotation! + diff * smoothingFactor;
 
     final screenSize = MediaQuery.of(context).size;
     final focalPoint = Offset(screenSize.width / 2, screenSize.height / 2);
@@ -817,15 +860,12 @@ class _MapScreenState extends State<MapScreen>
 
     // Rebuild matrix from scratch to ensure marker is centered and rotated correctly.
     // M = T(center) * R(angle) * S(scale) * T(-marker)
-    // [Method] identity() creates a neutral matrix.
-    // [Method] rotateZ() rotates around the Z-axis (2D rotation).
     final newMatrix = Matrix4.identity()
       ..translate(focalPoint.dx, focalPoint.dy)
-      ..rotateZ(rotationAngle)
+      ..rotateZ(_currentCameraRotation!)
       ..scale(scale)
       ..translate(-markerMapPos.dx, -markerMapPos.dy);
 
-    // [Property] value sets the current transformation of the InteractiveViewer.
     _controller.value = newMatrix;
   }
 
@@ -858,13 +898,19 @@ class _MapScreenState extends State<MapScreen>
     if (_currentSegment != null) {
       // Re-calculating the matrix using _rotateMapToDirection logic with new scale is safest
       // to maintain rotation + center focus.
-      final a = _currentSegment!['a'] as Offset;
-      final b = _currentSegment!['b'] as Offset;
-      final dx = b.dx - a.dx;
-      final dy = b.dy - a.dy;
-      // Calculate rotation to align the path upwards
-      final segmentAngle = atan2(dy, dx);
-      final rotationAngle = -pi / 2 - segmentAngle;
+      
+      // Use smoothed rotation if available, otherwise calculate from segment
+      double rotationAngle;
+      if (_currentCameraRotation != null) {
+        rotationAngle = _currentCameraRotation!;
+      } else {
+         final a = _currentSegment!['a'] as Offset;
+         final b = _currentSegment!['b'] as Offset;
+         final dx = b.dx - a.dx;
+         final dy = b.dy - a.dy;
+         final segmentAngle = atan2(dy, dx);
+         rotationAngle = -pi / 2 - segmentAngle;
+      }
 
       final newMatrix = Matrix4.identity()
         ..translate(focalPoint.dx, focalPoint.dy)
@@ -964,7 +1010,8 @@ class _MapScreenState extends State<MapScreen>
     final dirY = dy / segmentDist;
 
     // Auto mode always moves forward
-    double moveSpeed = 3.0;
+    // Auto mode always moves forward
+    double moveSpeed = _navigationSpeed;
 
     // Calculate potential new position
     var newPos = Offset(
@@ -1272,8 +1319,12 @@ class _MapScreenState extends State<MapScreen>
           
           // Normalize difference to range [-pi, pi]
           // [Loop] 'while' loop repeats as long as the condition is true.
-          while (diff > pi) diff -= 2 * pi;
-          while (diff <= -pi) diff += 2 * pi;
+          while (diff > pi) {
+            diff -= 2 * pi;
+          }
+          while (diff <= -pi) {
+            diff += 2 * pi;
+          }
 
           String direction = 'straight';
           if (diff > 0.5) {
@@ -1306,9 +1357,7 @@ class _MapScreenState extends State<MapScreen>
       if (currNode.floor != currentFloor) {
         // Floor switch happened!
         currentFloor = currNode.floor;
-        currentSvg = currentFloor == 0
-            ? 'assets/A_Block_Ground.svg'
-            : 'assets/A-BLOCK_first.svg';
+        currentSvg = _getSvgForFloor(currentFloor);
 
         // When switching floors via "vertical" edges, the x,y coordinates
         // should be roughly the same. We shouldn't need large coordinate jumps.
@@ -1385,8 +1434,12 @@ class _MapScreenState extends State<MapScreen>
       var diff = outAngle - inAngle;
       
       // Normalize angle difference
-      while (diff > pi) diff -= 2 * pi;
-      while (diff <= -pi) diff += 2 * pi;
+      while (diff > pi) {
+        diff -= 2 * pi;
+      }
+      while (diff <= -pi) {
+        diff += 2 * pi;
+      }
 
       String dir = 'straight';
       // Thresholds for classifying turns based on angle
@@ -1618,39 +1671,9 @@ class _MapScreenState extends State<MapScreen>
               _showProfileDialog();
             },
           ),
-          ExpansionTile(
-            leading: const Icon(Icons.tune, color: Colors.white70),
-            title: const Text('Navigation Mode',
-                style: TextStyle(color: Colors.white)),
-            children: [
-              RadioListTile<bool>(
-                title: const Text('Manual (Joystick)',
-                    style: TextStyle(color: Colors.white)),
-                value: false,
-                groupValue: _isAutoMode,
-                activeColor: const Color(0xFF6B73FF),
-                onChanged: (bool? value) {
-                  setState(() {
-                    _isAutoMode = value!;
-                  });
-                  Navigator.pop(context); // Close drawer
-                },
-              ),
-              RadioListTile<bool>(
-                title: const Text('Auto Navigation',
-                    style: TextStyle(color: Colors.white)),
-                value: true,
-                groupValue: _isAutoMode,
-                activeColor: const Color(0xFF6B73FF),
-                onChanged: (bool? value) {
-                  setState(() {
-                    _isAutoMode = value!;
-                  });
-                  Navigator.pop(context); // Close drawer
-                },
-              ),
-            ],
-          ),
+          /* Navigation Mode moved to Settings
+          ExpansionTile(...)
+          */
           ListTile(
             leading: const Icon(Icons.history, color: Colors.white70),
             title: const Text('Route History',
@@ -1664,7 +1687,10 @@ class _MapScreenState extends State<MapScreen>
             leading: const Icon(Icons.settings, color: Colors.white70),
             title:
                 const Text('Settings', style: TextStyle(color: Colors.white)),
-            onTap: () {},
+            onTap: () {
+              Navigator.pop(context);
+              _showSettingsDialog();
+            },
           ),
           ListTile(
             leading: const Icon(Icons.help, color: Colors.white70),
@@ -2098,6 +2124,111 @@ class _MapScreenState extends State<MapScreen>
           ),
         ],
       ),
+    );
+  }
+
+  void _showSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        // Use StatefulBuilder to manage slider state inside the dialog
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            return AlertDialog(
+              backgroundColor: const Color(0xFF2A2A2A),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
+              title: const Row(
+                children: [
+                  Icon(Icons.settings, color: Color(0xFF6B73FF)),
+                  SizedBox(width: 12),
+                  Text('Settings', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Navigation Speed',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      const Icon(Icons.speed, color: Colors.white70, size: 20),
+                      Expanded(
+                        child: Slider(
+                          value: _navigationSpeed,
+                          min: 1.0,
+                          max: 10.0,
+                          divisions: 9,
+                          label: "${_navigationSpeed.toStringAsFixed(1)}x",
+                          activeColor: const Color(0xFF6B73FF),
+                          inactiveColor: Colors.white24,
+                          onChanged: (value) {
+                            setStateDialog(() {
+                              _navigationSpeed = value;
+                            });
+                            // Also update parent state
+                            setState(() {
+                              _navigationSpeed = value;
+                            });
+                          },
+                        ),
+                      ),
+                      Text(
+                        "${_navigationSpeed.toStringAsFixed(1)}x",
+                        style: const TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
+                  const Divider(color: Colors.white24, height: 32),
+                  const Text('Navigation Mode',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  RadioListTile<bool>(
+                    title: const Text('Manual (Joystick)',
+                        style: TextStyle(color: Colors.white70)),
+                    value: false,
+                    groupValue: _isAutoMode,
+                    activeColor: const Color(0xFF6B73FF),
+                    onChanged: (bool? value) {
+                      setStateDialog(() {
+                        _isAutoMode = value!;
+                      });
+                      setState(() {
+                        _isAutoMode = value!;
+                      });
+                    },
+                  ),
+                  RadioListTile<bool>(
+                    title: const Text('Auto Navigation',
+                        style: TextStyle(color: Colors.white70)),
+                    value: true,
+                    groupValue: _isAutoMode,
+                    activeColor: const Color(0xFF6B73FF),
+                    onChanged: (bool? value) {
+                      setStateDialog(() {
+                        _isAutoMode = value!;
+                      });
+                      setState(() {
+                        _isAutoMode = value!;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Done',
+                      style: TextStyle(color: Colors.white70)),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
   }
 

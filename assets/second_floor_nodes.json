@@ -1,0 +1,122 @@
+[
+    {
+        "id": "A302_Door",
+        "name": "Multimedia Lab CSE",
+        "floor": 2,
+        "x": 1601.5033,
+        "y": 583.01967,
+        "type": "room"
+    },
+    {
+        "id": "A305_Door",
+        "name": "A305 Network System Lab CSE",
+        "floor": 2,
+        "x": 778.31516,
+        "y": 582.46675,
+        "type": "room"
+    },
+    {
+        "id": "A301_Door",
+        "name": "Toilet-Block A_Second",
+        "floor": 2,
+        "x": 1829.49477,
+        "y": 582.006,
+        "type": "waypoint"
+    },
+    {
+        "id": "Stairs_mid_Second",
+        "name": "Stairs halfway_Second",
+        "floor": 2,
+        "x": 1225.36787,
+        "y": 437.8437,
+        "type": "stair"
+    },
+    {
+        "id": "stairs_left_Second",
+        "name": "stairs left halfway_Second",
+        "floor": 2,
+        "x": 1153.6417,
+        "y": 437.93965,
+        "type": "stair"
+    },
+    {
+        "id": "stairs_right_Second",
+        "name": "stairs right halfway_Second",
+        "floor": 2,
+        "x": 1290.71557,
+        "y": 437.67897,
+        "type": "stair"
+    },
+    {
+        "id": "A304_Door",
+        "name": "A304 Network Systems Lab CSE",
+        "floor": 2,
+        "x": 849.39799,
+        "y": 582.28242,
+        "type": "room"
+    },
+    {
+        "id": "Cross-A-Second",
+        "name": "Crosspath Second Floor Block A",
+        "floor": 2,
+        "x": 1225.10737,
+        "y": 581.14393,
+        "type": "waypoint"
+    },
+    {
+        "id": "A303_Door",
+        "name": "Micro Processor Lab CSE",
+        "floor": 2,
+        "x": 1151.62986,
+        "y": 647.20082,
+        "type": "room"
+    },
+    {
+        "id": "CrossLeft-A-Second",
+        "name": "Crosspath Left Second Floor Block A",
+        "floor": 2,
+        "x": 1153.28422,
+        "y": 579.66792,
+        "type": "waypoint"
+    },
+    {
+        "id": "CrossRight-A-Second",
+        "name": "Crosspath Right Second Floor Block A",
+        "floor": 2,
+        "x": 1293.11007,
+        "y": 581.69685,
+        "type": "waypoint"
+    },
+    {
+        "id": "Turn_Ablock-Bblock-Left-Second",
+        "name": "Turn_Ablock-Bblock-Left-Second",
+        "floor": 2,
+        "x": 590.95539,
+        "y": 582.28242,
+        "type": "waypoint"
+    },
+    {
+        "id": "B_Block_from_A_Block_left_path_Second",
+        "name": "B Block from A Block left path_Second",
+        "floor": 2,
+        "x": 590.69474,
+        "y": 438.7588,
+        "type": "waypoint"
+    },
+    {
+        "id": "Turn_Ablock-Bblock-Right-Second",
+        "name": "Turn_Ablock-Bblock-Right_Second",
+        "floor": 2,
+        "x": 1862.67487,
+        "y": 582.28242,
+        "type": "waypoint"
+    },
+    {
+        "id": "B_Block_from_A_Block_right_path_Second",
+        "name": "B Block from A Block right path_Second",
+        "floor": 2,
+        "x": 1863.41217,
+        "y": 433.50667,
+        "type": "waypoint"
+    }
+]

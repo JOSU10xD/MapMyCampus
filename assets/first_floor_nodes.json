@@ -94,5 +94,13 @@
     "x": 1092.8896,
     "y": 357.46057,
     "type": "waypoint"
+  },
+  {
+    "id": "Stairs_to_Second",
+    "name": "Stairs to Second Floor",
+    "floor": 1,
+    "x": 1025.8007,
+    "y": 199.23984,
+    "type": "stair"
   }
 ]

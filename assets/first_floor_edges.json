@@ -58,5 +58,10 @@
     "from": "Cross-A-First",
     "to": "Crossright-A-First",
     "cost": 65.99975838296675
+  },
+  {
+    "from": "Cross-A-First",
+    "to": "Stairs_to_Second",
+    "cost": 157.1
   }
 ]

@@ -1,0 +1,77 @@
+[
+    {
+        "from": "CrossLeft-A-Second",
+        "to": "Cross-A-Second",
+        "cost": 71.84
+    },
+    {
+        "from": "Cross-A-Second",
+        "to": "CrossRight-A-Second",
+        "cost": 68.0
+    },
+    {
+        "from": "CrossLeft-A-Second",
+        "to": "stairs_left_Second",
+        "cost": 141.73
+    },
+    {
+        "from": "CrossLeft-A-Second",
+        "to": "A304_Door",
+        "cost": 303.9
+    },
+    {
+        "from": "CrossLeft-A-Second",
+        "to": "A303_Door",
+        "cost": 67.55
+    },
+    {
+        "from": "A304_Door",
+        "to": "A305_Door",
+        "cost": 71.08
+    },
+    {
+        "from": "A305_Door",
+        "to": "Turn_Ablock-Bblock-Left-Second",
+        "cost": 187.36
+    },
+    {
+        "from": "Turn_Ablock-Bblock-Left-Second",
+        "to": "B_Block_from_A_Block_left_path_Second",
+        "cost": 143.52
+    },
+    {
+        "from": "CrossRight-A-Second",
+        "to": "A302_Door",
+        "cost": 308.4
+    },
+    {
+        "from": "A302_Door",
+        "to": "A301_Door",
+        "cost": 227.99
+    },
+    {
+        "from": "A301_Door",
+        "to": "Turn_Ablock-Bblock-Right-Second",
+        "cost": 33.18
+    },
+    {
+        "from": "Turn_Ablock-Bblock-Right-Second",
+        "to": "B_Block_from_A_Block_right_path_Second",
+        "cost": 148.78
+    },
+    {
+        "from": "stairs_left_Second",
+        "to": "Stairs_mid_Second",
+        "cost": 71.73
+    },
+    {
+        "from": "Stairs_mid_Second",
+        "to": "stairs_right_Second",
+        "cost": 65.35
+    },
+    {
+        "from": "CrossRight-A-Second",
+        "to": "stairs_right_Second",
+        "cost": 144.04
+    }
+]
