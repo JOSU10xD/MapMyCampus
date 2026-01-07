@@ -204,10 +204,11 @@ class _MapScreenState extends State<MapScreen>
 
   // --- Destination State ---
   bool _destinationReached = false;
+  List<Map<String, dynamic>> _routeHistory = [];
 
   // --- Navigation Mode ---
   /// Toggle between Manual (Joystick) and Automatic navigation.
-  bool _isAutoMode = false;
+  bool _isAutoMode = true;
 
   // [Method] initState() is called once when this state object is inserted into the tree.
   // Perfect for initialization that depends on 'this' or 'context'.
@@ -570,6 +571,18 @@ class _MapScreenState extends State<MapScreen>
     _stopNavigation();
     _joystickTimer?.cancel();
 
+    // Add to history
+    final timestamp = DateTime.now();
+    _routeHistory.insert(0, {
+      'from': selectedFrom,
+      'to': selectedTo,
+      'fromName': nodes[selectedFrom!]?.name ?? 'Unknown',
+      'toName': nodes[selectedTo!]?.name ?? 'Unknown',
+      'timestamp': timestamp,
+      'dateStr': "${timestamp.day}/${timestamp.month}/${timestamp.year}",
+      'timeStr': "${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}"
+    });
+
     // Show destination reached popup
     _showDestinationReachedDialog();
   }
@@ -764,7 +777,7 @@ class _MapScreenState extends State<MapScreen>
     _animationController.reset();
     // [Class] Matrix4Tween interpolates between two matrices.
     // [Method] animate() drives the tween using the controller and a curve.
-    final animation = Matrix4Tween(begin: beginMatrix, end: endMatrix).animate(
+    final animation = Matrix4Tween(begin: currentMatrix, end: endMatrix).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
@@ -1600,7 +1613,10 @@ class _MapScreenState extends State<MapScreen>
           ListTile(
             leading: const Icon(Icons.person, color: Colors.white70),
             title: const Text('Profile', style: TextStyle(color: Colors.white)),
-            onTap: () {},
+            onTap: () {
+              Navigator.pop(context); // Close drawer first
+              _showProfileDialog();
+            },
           ),
           ExpansionTile(
             leading: const Icon(Icons.tune, color: Colors.white70),
@@ -1639,7 +1655,10 @@ class _MapScreenState extends State<MapScreen>
             leading: const Icon(Icons.history, color: Colors.white70),
             title: const Text('Route History',
                 style: TextStyle(color: Colors.white)),
-            onTap: () {},
+            onTap: () {
+              Navigator.pop(context); // Close drawer first
+              _showRouteHistoryDialog();
+            },
           ),
           ListTile(
             leading: const Icon(Icons.settings, color: Colors.white70),
@@ -1945,6 +1964,143 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
+  void _showProfileDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2A2A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('User Profile', style: TextStyle(color: Colors.white)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircleAvatar(
+              radius: 40,
+              backgroundColor: Color(0xFF6B73FF),
+              child: Icon(Icons.person, size: 40, color: Colors.white),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              _isLoggedIn ? _username : 'Guest User',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+              decoration: BoxDecoration(
+                color: _isLoggedIn
+                    ? Colors.green.withValues(alpha: 0.2)
+                    : Colors.orange.withValues(alpha: 0.2),
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: _isLoggedIn ? Colors.green : Colors.orange,
+                ),
+              ),
+              child: Text(
+                _isLoggedIn ? 'Active Member' : 'Guest Access',
+                style: TextStyle(
+                  color: _isLoggedIn ? Colors.green : Colors.orange,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close', style: TextStyle(color: Colors.white70)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showRouteHistoryDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFF2A2A2A),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.history, color: Color(0xFF6B73FF)),
+            SizedBox(width: 12),
+            Text('Route History', style: TextStyle(color: Colors.white)),
+          ],
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: _routeHistory.isEmpty
+              ? const Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.history_toggle_off,
+                        size: 48, color: Colors.white24),
+                    SizedBox(height: 16),
+                    Text(
+                      'No routes completed yet',
+                      style: TextStyle(color: Colors.white54),
+                    ),
+                  ],
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _routeHistory.length,
+                  itemBuilder: (context, index) {
+                    final item = _routeHistory[index];
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 8),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.white10),
+                      ),
+                      child: ListTile(
+                        leading: const CircleAvatar(
+                          backgroundColor: Color(0xFF6B73FF),
+                          child: Icon(Icons.check,
+                              color: Colors.white, size: 16),
+                        ),
+                        title: Text(
+                          "${item['fromName']} → ${item['toName']}",
+                          style: const TextStyle(
+                              color: Colors.white, fontSize: 14),
+                        ),
+                        subtitle: Text(
+                          "${item['dateStr']} at ${item['timeStr']}",
+                          style: const TextStyle(
+                              color: Colors.white54, fontSize: 12),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              setState(() {
+                _routeHistory.clear();
+              });
+              Navigator.pop(context);
+            },
+            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            child: const Text('Clear History'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close', style: TextStyle(color: Colors.white70)),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ------------ UI ------------
   @override
   Widget build(BuildContext context) {
@@ -1980,6 +2136,7 @@ class _MapScreenState extends State<MapScreen>
     }
 
     return Scaffold(
+      backgroundColor: Colors.white,
       key: _scaffoldKey,
       drawer: _buildSidebar(),
       appBar: AppBar(
@@ -2203,6 +2360,8 @@ class _MapScreenState extends State<MapScreen>
                             currentRoute: currentRoute,
                             isOffRoute: isOffRoute,
                             currentFloor: currentFloor,
+                            markerPos: markerMapPos,
+                            currentRouteIndex: _currentRouteIndex,
                           ),
                         ),
                       ),
@@ -2273,6 +2432,8 @@ class _MapPainter extends CustomPainter {
   final List<String> currentRoute;
   final bool isOffRoute;
   final int currentFloor;
+  final Offset? markerPos;
+  final int currentRouteIndex;
 
   _MapPainter({
     required this.nodes,
@@ -2280,6 +2441,8 @@ class _MapPainter extends CustomPainter {
     required this.currentRoute,
     required this.isOffRoute,
     required this.currentFloor,
+    required this.markerPos,
+    required this.currentRouteIndex,
   });
 
   // [Method] paint is called whenever the visual representation needs to be updated.
@@ -2317,11 +2480,14 @@ class _MapPainter extends CustomPainter {
       }
     }
 
+    final paintTraversed = Paint()
+      ..color = Colors.grey
+      ..strokeWidth = 14
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+
     // draw route polyline (only parts on current floor)
     if (currentRoute.isNotEmpty) {
-      // We need to draw multiple path segments because the route might jump floors
-      // A simple approach is to iterate and draw lines for connected nodes on same floor.
-
       for (int i = 0; i < currentRoute.length - 1; i++) {
         final id1 = currentRoute[i];
         final id2 = currentRoute[i + 1];
@@ -2331,8 +2497,22 @@ class _MapPainter extends CustomPainter {
         final n2 = nodes[id2]!;
 
         if (n1.floor == currentFloor && n2.floor == currentFloor) {
-          // [Method] drawLine draws a straight line between two points.
-          canvas.drawLine(Offset(n1.x, n1.y), Offset(n2.x, n2.y), paintRoute);
+          final p1 = Offset(n1.x, n1.y);
+          final p2 = Offset(n2.x, n2.y);
+
+          if (i < currentRouteIndex) {
+            // Already traversed: Gray
+            canvas.drawLine(p1, p2, paintTraversed);
+          } else if (i == currentRouteIndex && markerPos != null) {
+            // Currently traversing: Split at marker
+            // Start -> Marker (Traversed)
+            canvas.drawLine(p1, markerPos!, paintTraversed);
+            // Marker -> End (Remaining)
+            canvas.drawLine(markerPos!, p2, paintRoute);
+          } else {
+            // Future segment: Blue (or Orange if off-route)
+            canvas.drawLine(p1, p2, paintRoute);
+          }
         }
       }
     }
@@ -2395,5 +2575,7 @@ class _MapPainter extends CustomPainter {
   bool shouldRepaint(covariant _MapPainter old) =>
       old.currentRoute != currentRoute ||
       old.isOffRoute != isOffRoute ||
-      old.currentFloor != currentFloor;
+      old.currentFloor != currentFloor ||
+      old.markerPos != markerPos ||
+      old.currentRouteIndex != currentRouteIndex;
 }
