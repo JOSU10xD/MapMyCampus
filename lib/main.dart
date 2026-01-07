@@ -600,17 +600,19 @@ class _MapScreenState extends State<MapScreen>
     _stopNavigation();
     _joystickTimer?.cancel();
 
-    // Add to history
-    final timestamp = DateTime.now();
-    _routeHistory.insert(0, {
-      'from': selectedFrom,
-      'to': selectedTo,
-      'fromName': nodes[selectedFrom!]?.name ?? 'Unknown',
-      'toName': nodes[selectedTo!]?.name ?? 'Unknown',
-      'timestamp': timestamp,
-      'dateStr': "${timestamp.day}/${timestamp.month}/${timestamp.year}",
-      'timeStr': "${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}"
-    });
+    // Add to history if valid
+    if (selectedFrom != null && selectedTo != null) {
+      final timestamp = DateTime.now();
+      _routeHistory.insert(0, {
+        'from': selectedFrom,
+        'to': selectedTo,
+        'fromName': nodes[selectedFrom!]?.name ?? 'Unknown',
+        'toName': nodes[selectedTo!]?.name ?? 'Unknown',
+        'timestamp': timestamp,
+        'dateStr': "${timestamp.day}/${timestamp.month}/${timestamp.year}",
+        'timeStr': "${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}"
+      });
+    }
 
     // Show destination reached popup
     _showDestinationReachedDialog();
@@ -706,6 +708,9 @@ class _MapScreenState extends State<MapScreen>
                   _destinationReached = false;
                   selectedFrom = null;
                   selectedTo = null;
+                  currentRoute = []; // Clear route to prevent further movement
+                  _currentSegment = null; // Clear segment
+                  _currentCameraRotation = null; // Reset rotation
                 });
               },
               style: TextButton.styleFrom(
@@ -750,6 +755,12 @@ class _MapScreenState extends State<MapScreen>
     if (currentRoute.isNotEmpty) {
       final start = nodes[currentRoute.first]!;
       markerMapPos = Offset(start.x, start.y);
+
+      // Immediately update floor/map to the start node's floor
+      if (currentFloor != start.floor) {
+        currentFloor = start.floor;
+        currentSvg = _getSvgForFloor(currentFloor);
+      }
 
       // Set current segment
       if (currentRoute.length > 1) {
@@ -1540,6 +1551,19 @@ class _MapScreenState extends State<MapScreen>
 
     if (shouldHandleStraight) {
       _handleTurn('straight');
+    }
+
+    // Feedback if no route is active
+    if (pressed && currentRoute.isEmpty && !_destinationReached) {
+      ScaffoldMessenger.of(context).clearSnackBars(); // Avoid stacking
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please select a start and destination to navigate.'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Color(0xFF6B73FF),
+        ),
+      );
+      return; 
     }
 
     if (pressed) {
