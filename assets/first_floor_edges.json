@@ -1,0 +1,67 @@
+[
+  {
+    "from": "A205_Door",
+    "to": "A204_Door",
+    "cost": 36.51045785095143
+  },
+  {
+    "from": "Crossleft-A-First",
+    "to": "A204_Door",
+    "cost": 303.29662800183803
+  },
+  {
+    "from": "Cross-A-First",
+    "to": "A203_Door",
+    "cost": 63.187872268814374
+  },
+  {
+    "from": "A202_Door",
+    "to": "A201_Door",
+    "cost": 196.8429000000001
+  },
+  {
+    "from": "A205_Door",
+    "to": "A206_Door",
+    "cost": 171.2314313099161
+  },
+  {
+    "from": "stairs_right",
+    "to": "Stairs_mid",
+    "cost": 67.17471200423931
+  },
+  {
+    "from": "stairs_left",
+    "to": "Stairs_mid",
+    "cost": 72.30459405955472
+  },
+  {
+    "from": "Crossright-A-First",
+    "to": "A202_Door",
+    "cost": 333.6395038712863
+  },
+  {
+    "from": "Crossleft-A-First",
+    "to": "stairs_left",
+    "cost": 154.73884067252473
+  },
+  {
+    "from": "Crossleft-A-First",
+    "to": "Cross-A-First",
+    "cost": 68.2115467621869
+  },
+  {
+    "from": "Crossright-A-First",
+    "to": "stairs_right",
+    "cost": 156.21330958414683
+  },
+  {
+    "from": "Cross-A-First",
+    "to": "Crossright-A-First",
+    "cost": 65.99975838296675
+  },
+  {
+    "from": "Cross-A-First",
+    "to": "Stairs_to_Second",
+    "cost": 157.1
+  }
+]

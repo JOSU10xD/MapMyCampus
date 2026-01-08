@@ -1,0 +1,106 @@
+[
+  {
+    "id": "A202_Door",
+    "name": "A202 Programming Lab IT",
+    "floor": 1,
+    "x": 1427.0787,
+    "y": 356.75598,
+    "type": "waypoint"
+  },
+  {
+    "id": "A205_Door",
+    "name": "A205 Hardware Lab",
+    "floor": 1,
+    "x": 613.65881,
+    "y": 357.49323,
+    "type": "waypoint"
+  },
+  {
+    "id": "A201_Door",
+    "name": "Girls Toilet-Block A First",
+    "floor": 1,
+    "x": 1624.6588,
+    "y": 357.49323,
+    "type": "waypoint"
+  },
+  {
+    "id": "Stairs_mid",
+    "name": "Stairs halfway",
+    "floor": 1,
+    "x": 1025.8007,
+    "y": 199.23984,
+    "type": "stair"
+  },
+  {
+    "id": "stairs_left",
+    "name": "stairs left halfway",
+    "floor": 1,
+    "x": 954.07428,
+    "y": 200.37836,
+    "type": "stair"
+  },
+  {
+    "id": "A206_Door",
+    "name": "A206 U P S ROOM",
+    "floor": 1,
+    "x": 439.56937,
+    "y": 356.01874,
+    "type": "room"
+  },
+  {
+    "id": "A204_Door",
+    "name": "A204 Hardware Lab",
+    "floor": 1,
+    "x": 650.09125,
+    "y": 357.49323,
+    "type": "waypoint"
+  },
+  {
+    "id": "Cross-A-First",
+    "name": "Crosspath First Floor Block A",
+    "floor": 1,
+    "x": 1025.8007,
+    "y": 356.35471,
+    "type": "waypoint"
+  },
+  {
+    "id": "A203_Door",
+    "name": "IT FACULTY ROOM-2",
+    "floor": 1,
+    "x": 1024.6622,
+    "y": 418.97296,
+    "type": "room"
+  },
+  {
+    "id": "stairs_right",
+    "name": "stairs right halfway",
+    "floor": 1,
+    "x": 1092.9729,
+    "y": 200.37836,
+    "type": "stair"
+  },
+  {
+    "id": "Crossleft-A-First",
+    "name": "Crosspath Left First Floor Block A",
+    "floor": 1,
+    "x": 957.23718,
+    "y": 356.72333,
+    "type": "waypoint"
+  },
+  {
+    "id": "Crossright-A-First",
+    "name": "Crosspath Right First Floor Block A",
+    "floor": 1,
+    "x": 1092.8896,
+    "y": 357.46057,
+    "type": "waypoint"
+  },
+  {
+    "id": "Stairs_to_Second",
+    "name": "Stairs to Second Floor",
+    "floor": 1,
+    "x": 1025.8007,
+    "y": 199.23984,
+    "type": "stair"
+  }
+]
