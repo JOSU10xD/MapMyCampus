@@ -1653,84 +1653,92 @@ class _MapScreenState extends State<MapScreen>
 
   /// Builds the side navigation drawer.
   /// Contains profile info, navigation mode toggle, and settings.
+  /// Builds the side navigation drawer.
+  /// Contains profile info, navigation mode toggle, and settings.
   Widget _buildSidebar() {
-    // [Widget] Drawer is a material design panel that slides in horizontally.
     return Drawer(
-      backgroundColor: const Color(0xFF1E1E1E),
-      // [Widget] ListView is a scrollable list of widgets.
-      // [Property] padding: EdgeInsets.zero ensures the header touches the top edge.
-      child: ListView(
-        padding: EdgeInsets.zero,
-        children: [
-          DrawerHeader(
-            decoration: const BoxDecoration(
-              color: Color(0xFF6B73FF),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Campus Navigation',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 24,
-                    fontWeight: FontWeight.bold,
-                  ),
+      child: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF2E2E2E), Color(0xFF121212)],
+          ),
+        ),
+        child: ListView(
+          padding: EdgeInsets.zero,
+          children: [
+            DrawerHeader(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFF6B73FF), Color(0xFF4D55E0)],
                 ),
-                const SizedBox(height: 8),
-                Text(
-                  _isLoggedIn ? 'Welcome, $_username!' : 'Guest User',
-                  style: const TextStyle(
-                    color: Colors.white70,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Campus Navigation',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  Text(
+                    _isLoggedIn ? 'Welcome, $_username!' : 'Guest User',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-          ListTile(
-            leading: const Icon(Icons.person, color: Colors.white70),
-            title: const Text('Profile', style: TextStyle(color: Colors.white)),
-            onTap: () {
-              Navigator.pop(context); // Close drawer first
-              _showProfileDialog();
-            },
-          ),
-          /* Navigation Mode moved to Settings
-          ExpansionTile(...)
-          */
-          ListTile(
-            leading: const Icon(Icons.history, color: Colors.white70),
-            title: const Text('Route History',
-                style: TextStyle(color: Colors.white)),
-            onTap: () {
-              Navigator.pop(context); // Close drawer first
-              _showRouteHistoryDialog();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.settings, color: Colors.white70),
-            title:
-                const Text('Settings', style: TextStyle(color: Colors.white)),
-            onTap: () {
-              Navigator.pop(context);
-              _showSettingsDialog();
-            },
-          ),
-          ListTile(
-            leading: const Icon(Icons.help, color: Colors.white70),
-            title: const Text('Help & Feedback',
-                style: TextStyle(color: Colors.white)),
-            onTap: () {},
-          ),
-          const Divider(color: Colors.white24),
-          ListTile(
-            leading: Icon(_isLoggedIn ? Icons.logout : Icons.login,
-                color: Colors.white70),
-            title: Text(_isLoggedIn ? 'Logout' : 'Login',
-                style: const TextStyle(color: Colors.white)),
-            onTap: _handleLogin,
-          ),
-        ],
+            ListTile(
+              leading: const Icon(Icons.person, color: Colors.white70),
+              title: const Text('Profile', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context); // Close drawer first
+                _showProfileDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.history, color: Colors.white70),
+              title: const Text('Route History',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context); // Close drawer first
+                _showRouteHistoryDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.settings, color: Colors.white70),
+              title:
+                  const Text('Settings', style: TextStyle(color: Colors.white)),
+              onTap: () {
+                Navigator.pop(context);
+                _showSettingsDialog();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.help, color: Colors.white70),
+              title: const Text('Help & Feedback',
+                  style: TextStyle(color: Colors.white)),
+              onTap: () {},
+            ),
+            const Divider(color: Colors.white24),
+            ListTile(
+              leading: Icon(_isLoggedIn ? Icons.logout : Icons.login,
+                  color: Colors.white70),
+              title: Text(_isLoggedIn ? 'Logout' : 'Login',
+                  style: const TextStyle(color: Colors.white)),
+              onTap: _handleLogin,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2017,55 +2025,93 @@ class _MapScreenState extends State<MapScreen>
   void _showProfileDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Text('User Profile', style: TextStyle(color: Colors.white)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircleAvatar(
-              radius: 40,
-              backgroundColor: Color(0xFF6B73FF),
-              child: Icon(Icons.person, size: 40, color: Colors.white),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(20),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF3A3A3A), Color(0xFF1F1F1F)],
             ),
-            const SizedBox(height: 16),
-            Text(
-              _isLoggedIn ? _username : 'Guest User',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 20,
-                fontWeight: FontWeight.bold,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 15,
+                spreadRadius: 2,
               ),
-            ),
-            const SizedBox(height: 8),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _isLoggedIn
-                    ? Colors.green.withValues(alpha: 0.2)
-                    : Colors.orange.withValues(alpha: 0.2),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(
-                  color: _isLoggedIn ? Colors.green : Colors.orange,
-                ),
-              ),
-              child: Text(
-                _isLoggedIn ? 'Active Member' : 'Guest Access',
-                style: TextStyle(
-                  color: _isLoggedIn ? Colors.green : Colors.orange,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Colors.white70)),
+            ],
           ),
-        ],
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'User Profile',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 20),
+              const CircleAvatar(
+                radius: 40,
+                backgroundColor: Color(0xFF6B73FF),
+                child: Icon(Icons.person, size: 40, color: Colors.white),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                _isLoggedIn ? _username : 'Guest User',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _isLoggedIn
+                      ? Colors.green.withValues(alpha: 0.2)
+                      : Colors.orange.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: _isLoggedIn ? Colors.green : Colors.orange,
+                  ),
+                ),
+                child: Text(
+                  _isLoggedIn ? 'Active Member' : 'Guest Access',
+                  style: TextStyle(
+                    color: _isLoggedIn ? Colors.green : Colors.orange,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    side: const BorderSide(color: Colors.white24),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  child: const Text('Close',
+                      style: TextStyle(color: Colors.white)),
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -2073,80 +2119,121 @@ class _MapScreenState extends State<MapScreen>
   void _showRouteHistoryDialog() {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF2A2A2A),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
-          children: [
-            Icon(Icons.history, color: Color(0xFF6B73FF)),
-            SizedBox(width: 12),
-            Text('Route History', style: TextStyle(color: Colors.white)),
-          ],
-        ),
-        content: SizedBox(
-          width: double.maxFinite,
-          child: _routeHistory.isEmpty
-              ? const Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.history_toggle_off,
-                        size: 48, color: Colors.white24),
-                    SizedBox(height: 16),
-                    Text(
-                      'No routes completed yet',
-                      style: TextStyle(color: Colors.white54),
+      builder: (context) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(20),
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF3A3A3A), Color(0xFF1F1F1F)],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.white10),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.4),
+                blurRadius: 15,
+                spreadRadius: 2,
+              ),
+            ],
+          ),
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Row(
+                children: [
+                  Icon(Icons.history, color: Color(0xFF6B73FF)),
+                  SizedBox(width: 12),
+                  Text(
+                    'Route History',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
                     ),
-                  ],
-                )
-              : ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _routeHistory.length,
-                  itemBuilder: (context, index) {
-                    final item = _routeHistory[index];
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      decoration: BoxDecoration(
-                        color: Colors.black.withValues(alpha: 0.2),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.white10),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.maxFinite,
+                height: 300, // Limit height
+                child: _routeHistory.isEmpty
+                    ? const Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.history_toggle_off,
+                              size: 48, color: Colors.white24),
+                          SizedBox(height: 16),
+                          Text(
+                            'No routes completed yet',
+                            style: TextStyle(color: Colors.white54),
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _routeHistory.length,
+                        itemBuilder: (context, index) {
+                          final item = _routeHistory[index];
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white10),
+                            ),
+                            child: ListTile(
+                              leading: const CircleAvatar(
+                                backgroundColor: Color(0xFF6B73FF),
+                                child: Icon(Icons.check,
+                                    color: Colors.white, size: 16),
+                              ),
+                              title: Text(
+                                "${item['fromName']} → ${item['toName']}",
+                                style: const TextStyle(
+                                    color: Colors.white, fontSize: 14),
+                              ),
+                              subtitle: Text(
+                                "${item['dateStr']} at ${item['timeStr']}",
+                                style: const TextStyle(
+                                    color: Colors.white54, fontSize: 12),
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      child: ListTile(
-                        leading: const CircleAvatar(
-                          backgroundColor: Color(0xFF6B73FF),
-                          child: Icon(Icons.check,
-                              color: Colors.white, size: 16),
-                        ),
-                        title: Text(
-                          "${item['fromName']} → ${item['toName']}",
-                          style: const TextStyle(
-                              color: Colors.white, fontSize: 14),
-                        ),
-                        subtitle: Text(
-                          "${item['dateStr']} at ${item['timeStr']}",
-                          style: const TextStyle(
-                              color: Colors.white54, fontSize: 12),
-                        ),
-                      ),
-                    );
-                  },
-                ),
+              ),
+              const SizedBox(height: 20),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  if (_routeHistory.isNotEmpty)
+                    TextButton(
+                      onPressed: () {
+                        setState(() {
+                          _routeHistory.clear();
+                        });
+                        Navigator.pop(context);
+                      },
+                      style: TextButton.styleFrom(
+                          foregroundColor: Colors.redAccent),
+                      child: const Text('Clear History'),
+                    ),
+                  const SizedBox(width: 8),
+                  TextButton(
+                    onPressed: () => Navigator.pop(context),
+                    child: const Text('Close',
+                        style: TextStyle(color: Colors.white70)),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              setState(() {
-                _routeHistory.clear();
-              });
-              Navigator.pop(context);
-            },
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
-            child: const Text('Clear History'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Close', style: TextStyle(color: Colors.white70)),
-          ),
-        ],
       ),
     );
   }
@@ -2158,97 +2245,133 @@ class _MapScreenState extends State<MapScreen>
         // Use StatefulBuilder to manage slider state inside the dialog
         return StatefulBuilder(
           builder: (context, setStateDialog) {
-            return AlertDialog(
-              backgroundColor: const Color(0xFF2A2A2A),
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16)),
-              title: const Row(
-                children: [
-                  Icon(Icons.settings, color: Color(0xFF6B73FF)),
-                  SizedBox(width: 12),
-                  Text('Settings', style: TextStyle(color: Colors.white)),
-                ],
-              ),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Navigation Speed',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.speed, color: Colors.white70, size: 20),
-                      Expanded(
-                        child: Slider(
-                          value: _navigationSpeed,
-                          min: 1.0,
-                          max: 10.0,
-                          divisions: 9,
-                          label: "${_navigationSpeed.toStringAsFixed(1)}x",
-                          activeColor: const Color(0xFF6B73FF),
-                          inactiveColor: Colors.white24,
-                          onChanged: (value) {
-                            setStateDialog(() {
-                              _navigationSpeed = value;
-                            });
-                            // Also update parent state
-                            setState(() {
-                              _navigationSpeed = value;
-                            });
-                          },
-                        ),
-                      ),
-                      Text(
-                        "${_navigationSpeed.toStringAsFixed(1)}x",
-                        style: const TextStyle(color: Colors.white),
-                      ),
-                    ],
+            return Dialog(
+              backgroundColor: Colors.transparent,
+              insetPadding: const EdgeInsets.all(20),
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [Color(0xFF3A3A3A), Color(0xFF1F1F1F)],
                   ),
-                  const Divider(color: Colors.white24, height: 32),
-                  const Text('Navigation Mode',
-                      style: TextStyle(
-                          color: Colors.white, fontWeight: FontWeight.bold)),
-                  RadioListTile<bool>(
-                    title: const Text('Manual (Joystick)',
-                        style: TextStyle(color: Colors.white70)),
-                    value: false,
-                    groupValue: _isAutoMode,
-                    activeColor: const Color(0xFF6B73FF),
-                    onChanged: (bool? value) {
-                      setStateDialog(() {
-                        _isAutoMode = value!;
-                      });
-                      setState(() {
-                        _isAutoMode = value!;
-                      });
-                    },
-                  ),
-                  RadioListTile<bool>(
-                    title: const Text('Auto Navigation',
-                        style: TextStyle(color: Colors.white70)),
-                    value: true,
-                    groupValue: _isAutoMode,
-                    activeColor: const Color(0xFF6B73FF),
-                    onChanged: (bool? value) {
-                      setStateDialog(() {
-                        _isAutoMode = value!;
-                      });
-                      setState(() {
-                        _isAutoMode = value!;
-                      });
-                    },
-                  ),
-                ],
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.pop(context),
-                  child: const Text('Done',
-                      style: TextStyle(color: Colors.white70)),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: Colors.white10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      blurRadius: 15,
+                      spreadRadius: 2,
+                    ),
+                  ],
                 ),
-              ],
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Row(
+                      children: [
+                        Icon(Icons.settings, color: Color(0xFF6B73FF)),
+                        SizedBox(width: 12),
+                        Text(
+                          'Settings',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                    const Text('Navigation Speed',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.speed,
+                            color: Colors.white70, size: 20),
+                        Expanded(
+                          child: Slider(
+                            value: _navigationSpeed,
+                            min: 1.0,
+                            max: 10.0,
+                            divisions: 9,
+                            label: "${_navigationSpeed.toStringAsFixed(1)}x",
+                            activeColor: const Color(0xFF6B73FF),
+                            inactiveColor: Colors.white24,
+                            onChanged: (value) {
+                              setStateDialog(() {
+                                _navigationSpeed = value;
+                              });
+                              // Also update parent state
+                              setState(() {
+                                _navigationSpeed = value;
+                              });
+                            },
+                          ),
+                        ),
+                        Text(
+                          "${_navigationSpeed.toStringAsFixed(1)}x",
+                          style: const TextStyle(color: Colors.white),
+                        ),
+                      ],
+                    ),
+                    const Divider(color: Colors.white24, height: 32),
+                    const Text('Navigation Mode',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
+                    RadioListTile<bool>(
+                      title: const Text('Manual (Joystick)',
+                          style: TextStyle(color: Colors.white70)),
+                      value: false,
+                      groupValue: _isAutoMode,
+                      activeColor: const Color(0xFF6B73FF),
+                      onChanged: (bool? value) {
+                        setStateDialog(() {
+                          _isAutoMode = value!;
+                        });
+                        setState(() {
+                          _isAutoMode = value!;
+                        });
+                      },
+                    ),
+                    RadioListTile<bool>(
+                      title: const Text('Auto Navigation',
+                          style: TextStyle(color: Colors.white70)),
+                      value: true,
+                      groupValue: _isAutoMode,
+                      activeColor: const Color(0xFF6B73FF),
+                      onChanged: (bool? value) {
+                        setStateDialog(() {
+                          _isAutoMode = value!;
+                        });
+                        setState(() {
+                          _isAutoMode = value!;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 24),
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        style: TextButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          side: const BorderSide(color: Colors.white24),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: const Text('Done',
+                            style: TextStyle(color: Colors.white)),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             );
           },
         );
@@ -2307,7 +2430,11 @@ class _MapScreenState extends State<MapScreen>
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E),
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFF2E2E2E), Color(0xFF1E1E1E)],
+              ),
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withValues(alpha: 0.3),
@@ -2319,51 +2446,70 @@ class _MapScreenState extends State<MapScreen>
             child: Row(
               children: [
                 // Start Location Dropdown
-                // [Widget] Expanded forces the child to fill available horizontal space.
                 Expanded(
-                  // [Widget] DropdownButtonFormField creates a dropdown menu embedded in a form.
                   child: DropdownButtonFormField<String>(
+                    isExpanded: true,
                     dropdownColor: const Color(0xFF2A2A2A),
                     style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Start Location',
-                      labelStyle: TextStyle(color: Colors.white70),
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.black.withValues(alpha: 0.2),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                     ),
                     value: selectedFrom,
-                    // [Method] map converts the list of nodes into a list of DropdownMenuItems.
                     items: nodes.values
                         .map((node) => DropdownMenuItem(
                               value: node.id,
-                              child: Text(node.name,
-                                  style: const TextStyle(color: Colors.white)),
+                              child: Text(
+                                node.name,
+                                style: const TextStyle(color: Colors.white),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ))
                         .toList(),
                     onChanged: (v) => setState(() => selectedFrom = v),
-                    icon: const Icon(Icons.arrow_drop_down,
-                        color: Colors.white70),
+                    icon:
+                        const Icon(Icons.arrow_drop_down, color: Colors.white70),
                   ),
                 ),
                 const SizedBox(width: 12),
                 // Destination Location Dropdown
                 Expanded(
                   child: DropdownButtonFormField<String>(
+                    isExpanded: true,
                     dropdownColor: const Color(0xFF2A2A2A),
                     style: const TextStyle(color: Colors.white),
-                    decoration: const InputDecoration(
+                    decoration: InputDecoration(
                       labelText: 'Destination',
-                      labelStyle: TextStyle(color: Colors.white70),
+                      labelStyle: const TextStyle(color: Colors.white70),
+                      filled: true,
+                      fillColor: Colors.black.withValues(alpha: 0.2),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide.none,
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
                     ),
                     value: selectedTo,
                     items: nodes.values
                         .map((node) => DropdownMenuItem(
                               value: node.id,
-                              child: Text(node.name,
-                                  style: const TextStyle(color: Colors.white)),
+                              child: Text(
+                                node.name,
+                                style: const TextStyle(color: Colors.white),
+                                overflow: TextOverflow.ellipsis,
+                              ),
                             ))
                         .toList(),
                     onChanged: (v) => setState(() => selectedTo = v),
-                    icon: const Icon(Icons.arrow_drop_down,
-                        color: Colors.white70),
+                    icon:
+                        const Icon(Icons.arrow_drop_down, color: Colors.white70),
                   ),
                 ),
                 const SizedBox(width: 12),
