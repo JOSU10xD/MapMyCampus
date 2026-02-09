@@ -13,11 +13,20 @@ dependencies:
   flutter_svg: ^2.0.7
   vector_math: ^2.1.2
   cupertino_icons: ^1.0.8
+  flutter_tts: ^4.2.5
+  audioplayers: ^6.0.0
+  video_player: ^2.8.1
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^4.0.0
+  flutter_launcher_icons: ^0.13.1
+
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/MapMyCampuslogo.png"
 
 flutter:
   uses-material-design: true
@@ -33,3 +42,8 @@ flutter:
     - assets/A-BLOCK-second.svg
     - assets/second_floor_nodes.json
     - assets/second_floor_edges.json
+    - assets/right.mp3
+    - assets/left.mp3
+    - assets/reached_destination.mp3
+    - assets/MapMyCampuslogo.png
+    - assets/splashscreen.mp4

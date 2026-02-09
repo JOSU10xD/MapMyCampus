@@ -1,7 +1,7 @@
 // lib/main.dart
 // This is the main entry point for the Campus Navigation application.
 /// It sets up the Flutter environment, initializes the app theme, and launches the [MapScreen].
-/// 
+///
 /// Key features include:
 /// - Interactive map with pan and zoom.
 /// - Floor switching (Ground vs First Floor).
@@ -14,7 +14,9 @@ import 'dart:math'; // [Method] Provides mathematical constants and functions li
 import 'package:flutter/material.dart'; // [Framework] The core Flutter UI library containing widgets like MaterialApp, Scaffold, etc.
 import 'package:flutter/services.dart'; // [Framework] Access to platform services like status bar control (SystemChrome) and asset loading (rootBundle).
 import 'package:flutter_svg/flutter_svg.dart'; // [External Package] A third-party package for rendering SVG images.
-import 'package:vector_math/vector_math_64.dart' as vm; // [Keyword] 'as' allows us to give a library a prefix (vm) to avoid naming conflicts.
+import 'package:vector_math/vector_math_64.dart' as vm;
+import 'voice_service.dart'; // [Keyword] 'as' allows us to give a library a prefix (vm) to avoid naming conflicts.
+import 'splash_screen.dart';
 
 // [Keyword] 'void' indicates this function returns no value.
 // [Method] 'main' is the entry point of every Dart application.
@@ -40,9 +42,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     // [Widget] MaterialApp is the root widget that wraps a number of widgets that are commonly required for material design applications.
     return MaterialApp(
-      title: 'Campus Navigation',
+      title: 'MapMyCampus',
       debugShowCheckedModeBanner: false, // Remove debug banner
-      
+
       // Configure the global application theme
       theme: ThemeData.dark().copyWith(
         // Define color scheme seeded from a primary color (Indigo/Purple)
@@ -69,7 +71,7 @@ class MyApp extends StatelessWidget {
               const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
-      home: const MapScreen(),
+      home: const SplashScreen(),
     );
   }
 }
@@ -81,15 +83,19 @@ class Node {
   /// Unique identifier for the node (e.g., "G_Room101").
   // [Keyword] 'final' means these variables can only be set once (immutable after initialization).
   final String id;
+
   /// Human-readable name for the location.
   final String name;
+
   /// X coordinate on the map canvas.
   final double x;
+
   /// Y coordinate on the map canvas.
   final double y;
+
   /// The floor level this node belongs to (0 for Ground, 1 for First).
   final int floor;
-  
+
   // [Constructor] Initializes a Node instance.
   // [Keyword] 'required' means these named parameters must be provided by the caller; they cannot be null.
   Node(
@@ -104,11 +110,13 @@ class Node {
 class Edge {
   /// The ID of the starting node.
   final String from;
+
   /// The ID of the ending node.
   final String to;
+
   /// The movement cost associated with this edge (usually distance).
   final double cost;
-  
+
   Edge({required this.from, required this.to, required this.cost});
 }
 
@@ -133,12 +141,14 @@ class _MapScreenState extends State<MapScreen>
   // --- Graph Data ---
   /// Stores all nodes loaded from JSON, keyed by their ID.
   Map<String, Node> nodes = {};
+
   /// Stores all edges loaded from JSON (graph connections).
   final List<Edge> edges = [];
 
   // --- Floor State ---
   /// Current active floor index (0: Ground, 1: First).
-  int currentFloor = 0; 
+  int currentFloor = 0;
+
   /// Path to the currently displayed SVG map asset.
   String currentSvg = 'assets/A_Block_Ground.svg';
 
@@ -150,12 +160,16 @@ class _MapScreenState extends State<MapScreen>
   // --- Route & Navigation State ---
   /// The constructed path (list of Node IDs) from start to destination.
   List<String> currentRoute = [];
+
   /// Current position of the user marker on the map (map coordinates).
   Offset markerMapPos = Offset.zero;
+
   /// Current rotation angle of the marker/map.
   double markerAngle = 0.0;
+
   /// Selected start node ID (for route planning).
   String? selectedFrom;
+
   /// Selected destination node ID (for route planning).
   String? selectedTo;
 
@@ -166,14 +180,17 @@ class _MapScreenState extends State<MapScreen>
   // --- Reroute & Off-Path Logic ---
   /// Timer to debounce rerouting when user goes off-path.
   Timer? offPathTimer;
+
   /// Flag indicating if the user is currently off the planned route.
   bool isOffRoute = false;
 
   // --- Tuning Parameters ---
   /// Max distance to snap a click/tap to the nearest segment.
   final double snapRadius = 80.0;
+
   /// Distance threshold to consider a node "reached".
   final double reachNodeThreshold = 14.0;
+
   /// Delay before triggering a reroute.
   final Duration rerouteDelay = const Duration(seconds: 4);
 
@@ -199,6 +216,7 @@ class _MapScreenState extends State<MapScreen>
   // --- Current Navigation Segment ---
   /// Details of the edge the user is currently traversing.
   Map<String, dynamic>? _currentSegment;
+
   /// Index of the current step in [currentRoute].
   int _currentRouteIndex = 0;
 
@@ -211,11 +229,16 @@ class _MapScreenState extends State<MapScreen>
   // --- Navigation Mode ---
   /// Toggle between Manual (Joystick) and Automatic navigation.
   bool _isAutoMode = true;
+  bool _isMalayalam = false; // Voice language state
   double _navigationSpeed = 3.0; // Default speed 3.0
 
   /// Current smoothed rotation of the camera (radians).
   /// Used to interpolate rotation for smoother turns.
   double? _currentCameraRotation;
+
+  // --- Voice Navigation ---
+  final VoiceService _voiceService = VoiceService();
+  String? _lastSpokenNodeId;
 
   // [Method] initState() is called once when this state object is inserted into the tree.
   // Perfect for initialization that depends on 'this' or 'context'.
@@ -223,14 +246,18 @@ class _MapScreenState extends State<MapScreen>
   void initState() {
     // [Keyword] 'super' allows calling the method from the parent class (State).
     super.initState();
+
     /// Initialize animation controller for smooth camera movements.
     // [Parameter] 'vsync: this' uses the TickerProviderMixin to prevent animations from running when off-screen.
     _animationController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 800),
     );
+
+    /// Kick off asset loading (nodes, edges, maps).
     /// Kick off asset loading (nodes, edges, maps).
     loadAssets();
+    _voiceService.init();
   }
 
   @override
@@ -238,8 +265,10 @@ class _MapScreenState extends State<MapScreen>
     /// Dispose resource controllers to prevent memory leaks.
     _animationController.dispose();
     offPathTimer?.cancel();
+    offPathTimer?.cancel();
     _navigationTimer?.cancel();
     _joystickTimer?.cancel();
+    _voiceService.stop();
     super.dispose();
   }
 
@@ -265,12 +294,10 @@ class _MapScreenState extends State<MapScreen>
             as List;
 
     // --- 3. Load Second Floor Data ---
-    final secondNodesJson =
-        jsonDecode(await rootBundle.loadString('assets/second_floor_nodes.json'))
-            as List;
-    final secondEdgesJson =
-        jsonDecode(await rootBundle.loadString('assets/second_floor_edges.json'))
-            as List;
+    final secondNodesJson = jsonDecode(
+        await rootBundle.loadString('assets/second_floor_nodes.json')) as List;
+    final secondEdgesJson = jsonDecode(
+        await rootBundle.loadString('assets/second_floor_edges.json')) as List;
 
     // --- 4. Process Nodes ---
     // Helper closure to process raw JSON node data.
@@ -284,13 +311,13 @@ class _MapScreenState extends State<MapScreen>
       } else {
         suffix = ' (2F)';
       }
-      
+
       for (var n in data) {
         final id = '$prefix${n['id']}';
         nodes[id] = Node(
           id: id,
-          name: (n['name'] ?? id) + suffix, 
-          x: (n['x'] as num).toDouble(), 
+          name: (n['name'] ?? id) + suffix,
+          x: (n['x'] as num).toDouble(),
           y: (n['y'] as num).toDouble(),
           floor: floorOverride,
         );
@@ -334,7 +361,7 @@ class _MapScreenState extends State<MapScreen>
     // Explicit connection: F1 Stairs Node <-> F2 Stairs Node
     const f1Connector = 'F1_Stairs_to_Second';
     const f2Connector = 'F2_Stairs_mid_Second';
-    
+
     if (nodes.containsKey(f1Connector) && nodes.containsKey(f2Connector)) {
       edges.add(Edge(from: f1Connector, to: f2Connector, cost: 60.0));
       edges.add(Edge(from: f2Connector, to: f1Connector, cost: 60.0));
@@ -354,7 +381,7 @@ class _MapScreenState extends State<MapScreen>
         .map((e) {
           final nodeA = nodes[e.from]!;
           final nodeB = nodes[e.to]!;
-          
+
           // Only create geometric segment if both nodes are on the same floor.
           if (nodeA.floor == nodeB.floor) {
             return {
@@ -365,9 +392,9 @@ class _MapScreenState extends State<MapScreen>
               'floor': nodeA.floor
             };
           }
-          return null; 
+          return null;
         })
-        .whereType<Map<String, dynamic>>() 
+        .whereType<Map<String, dynamic>>()
         .toList();
 
     // --- 9. Set Initial Position ---
@@ -446,8 +473,9 @@ class _MapScreenState extends State<MapScreen>
     final segs = <Map<String, dynamic>>[];
     for (int i = 0; i < currentRoute.length - 1; i++) {
       // Need to handle missing nodes gracefully, though computePath guarantees existence.
-      if (nodes[currentRoute[i]] == null || nodes[currentRoute[i+1]] == null) continue;
-      
+      if (nodes[currentRoute[i]] == null || nodes[currentRoute[i + 1]] == null)
+        continue;
+
       final a = Offset(nodes[currentRoute[i]]!.x, nodes[currentRoute[i]]!.y);
       final b =
           Offset(nodes[currentRoute[i + 1]]!.x, nodes[currentRoute[i + 1]]!.y);
@@ -475,7 +503,7 @@ class _MapScreenState extends State<MapScreen>
       final b = segs[i]['b']!;
       final proj = projectPointToSegment(p, a, b);
       final d = _distance(p, proj);
-      
+
       // Keep track of the global minimum distance
       if (d < best) {
         best = d;
@@ -504,7 +532,7 @@ class _MapScreenState extends State<MapScreen>
     // Open set: Nodes to be evaluated
     // [Collection] Sets (<String>{}) store unique values and provide fast lookups.
     final open = <String>{startId};
-    
+
     // CameFrom: Map to reconstruct the path (Navigated to Key from Value)
     final cameFrom = <String, String>{};
 
@@ -512,7 +540,7 @@ class _MapScreenState extends State<MapScreen>
     final gScore = <String, double>{
       for (var k in nodes.keys) k: double.infinity
     };
-    
+
     // fScore: Estimated total cost (gScore + heuristic)
     final fScore = <String, double>{
       for (var k in nodes.keys) k: double.infinity
@@ -556,7 +584,7 @@ class _MapScreenState extends State<MapScreen>
       // Evaluate neighbors
       for (var e in edges.where((ed) => ed.from == current)) {
         final tentative = (gScore[current] ?? double.infinity) + e.cost;
-        
+
         // If this path to neighbor is better than any previous one...
         if (tentative < (gScore[e.to] ?? double.infinity)) {
           // Record the best path to this neighbor
@@ -564,9 +592,9 @@ class _MapScreenState extends State<MapScreen>
           gScore[e.to] = tentative;
           // Calculate fScore = gScore + h(n)
           fScore[e.to] = tentative + _heuristic(e.to, goalId);
-          
+
           // Add neighbor to open set if not already there to be explored expectedly
-          open.add(e.to); 
+          open.add(e.to);
         }
       }
     }
@@ -583,8 +611,12 @@ class _MapScreenState extends State<MapScreen>
   /// Stops all active navigation timers and animations.
   void _stopNavigation() {
     _navigationTimer?.cancel();
-    // _navigationSpeed = 0;
-    setState(() {});
+    // _voiceService.stop(); // Don't stop voice immediately, let "Arrived" message finish
+    setState(() {
+      currentRoute = [];
+      _showTurnControls = false;
+      isOffRoute = false;
+    });
   }
 
   /// Called when the user reaches the destination.
@@ -594,7 +626,11 @@ class _MapScreenState extends State<MapScreen>
 
     setState(() {
       _destinationReached = true;
+      _destinationReached = true;
     });
+
+    _speakInstruction(
+        "You have arrived at ${nodes[selectedTo!]?.name ?? 'your destination'}.");
 
     // Stop all navigation
     _stopNavigation();
@@ -610,7 +646,8 @@ class _MapScreenState extends State<MapScreen>
         'toName': nodes[selectedTo!]?.name ?? 'Unknown',
         'timestamp': timestamp,
         'dateStr': "${timestamp.day}/${timestamp.month}/${timestamp.year}",
-        'timeStr': "${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}"
+        'timeStr':
+            "${timestamp.hour}:${timestamp.minute.toString().padLeft(2, '0')}"
       });
     }
 
@@ -750,7 +787,13 @@ class _MapScreenState extends State<MapScreen>
   void setCurrentRoute(List<String> route) {
     currentRoute = route;
     _currentRouteIndex = 0;
+    _lastSpokenNodeId = null; // Reset voice tracker
     _destinationReached = false; // Reset destination reached flag
+
+    if (currentRoute.isNotEmpty) {
+      _speakInstruction(
+          "Starting navigation to ${nodes[selectedTo!]?.name ?? 'destination'}.");
+    }
 
     if (currentRoute.isNotEmpty) {
       final start = nodes[currentRoute.first]!;
@@ -775,7 +818,8 @@ class _MapScreenState extends State<MapScreen>
         // Calculate initial angle (pointing towards next node)
         final dx = next.x - start.x;
         final dy = next.y - start.y;
-        markerAngle = atan2(dy, dx) + pi / 2; // +pi/2 because marker is likely drawn pointing up
+        markerAngle = atan2(dy, dx) +
+            pi / 2; // +pi/2 because marker is likely drawn pointing up
       }
 
       // Focus camera on the marker and rotate map
@@ -817,7 +861,8 @@ class _MapScreenState extends State<MapScreen>
     _animationController.reset();
     // [Class] Matrix4Tween interpolates between two matrices.
     // [Method] animate() drives the tween using the controller and a curve.
-    final animation = Matrix4Tween(begin: currentMatrix, end: endMatrix).animate(
+    final animation =
+        Matrix4Tween(begin: currentMatrix, end: endMatrix).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
 
@@ -859,7 +904,7 @@ class _MapScreenState extends State<MapScreen>
     while (diff <= -pi) diff += 2 * pi;
 
     // Apply smoothing factor (lower = smoother/slower)
-    const double smoothingFactor = 0.08; 
+    const double smoothingFactor = 0.08;
     _currentCameraRotation = _currentCameraRotation! + diff * smoothingFactor;
 
     final screenSize = MediaQuery.of(context).size;
@@ -909,18 +954,18 @@ class _MapScreenState extends State<MapScreen>
     if (_currentSegment != null) {
       // Re-calculating the matrix using _rotateMapToDirection logic with new scale is safest
       // to maintain rotation + center focus.
-      
+
       // Use smoothed rotation if available, otherwise calculate from segment
       double rotationAngle;
       if (_currentCameraRotation != null) {
         rotationAngle = _currentCameraRotation!;
       } else {
-         final a = _currentSegment!['a'] as Offset;
-         final b = _currentSegment!['b'] as Offset;
-         final dx = b.dx - a.dx;
-         final dy = b.dy - a.dy;
-         final segmentAngle = atan2(dy, dx);
-         rotationAngle = -pi / 2 - segmentAngle;
+        final a = _currentSegment!['a'] as Offset;
+        final b = _currentSegment!['b'] as Offset;
+        final dx = b.dx - a.dx;
+        final dy = b.dy - a.dy;
+        final segmentAngle = atan2(dy, dx);
+        rotationAngle = -pi / 2 - segmentAngle;
       }
 
       final newMatrix = Matrix4.identity()
@@ -953,13 +998,19 @@ class _MapScreenState extends State<MapScreen>
 
   // --- Intersection State ---
   /// Flag to show/hide the directional arrows overlay at intersections.
+  // Time estimation
+  String? _estimatedTime;
+
   bool _showTurnControls = false;
+
   /// List of valid directions ('left', 'right', 'straight') at the current intersection.
-  final List<String> _validTurnDirections = []; 
+  final List<String> _validTurnDirections = [];
+
   /// The correct direction to take to stay on the path.
-  String _correctTurnDirection = ''; 
+  String _correctTurnDirection = '';
+
   /// Helper to prevent accidental 'up' release triggering 'straight' too easily.
-  bool _ignoreNextUpRelease = false; 
+  bool _ignoreNextUpRelease = false;
 
   // ------------ joystick control ------------
 
@@ -1031,6 +1082,9 @@ class _MapScreenState extends State<MapScreen>
     );
 
     final distToTarget = _distance(currentPos, targetPos);
+
+    // Check for voice instructions
+    _checkVoiceInstruction(distToTarget);
 
     // If we are close enough OR we overshot
     if (distToTarget <= moveSpeed ||
@@ -1136,6 +1190,9 @@ class _MapScreenState extends State<MapScreen>
     // Check if we reached the target node (forward movement)
     if (moveSpeed > 0) {
       final distToTarget = _distance(currentPos, targetPos);
+
+      // Check for voice instructions
+      _checkVoiceInstruction(distToTarget);
 
       // If we are close enough OR we overshot
       if (distToTarget <= moveSpeed ||
@@ -1327,7 +1384,7 @@ class _MapScreenState extends State<MapScreen>
 
           // Calculate relative angle difference
           var diff = outAngle - inAngle;
-          
+
           // Normalize difference to range [-pi, pi]
           // [Loop] 'while' loop repeats as long as the condition is true.
           while (diff > pi) {
@@ -1443,7 +1500,7 @@ class _MapScreenState extends State<MapScreen>
       final outAngle = atan2(outDy, outDx);
 
       var diff = outAngle - inAngle;
-      
+
       // Normalize angle difference
       while (diff > pi) {
         diff -= 2 * pi;
@@ -1563,7 +1620,7 @@ class _MapScreenState extends State<MapScreen>
           backgroundColor: Color(0xFF6B73FF),
         ),
       );
-      return; 
+      return;
     }
 
     if (pressed) {
@@ -1679,11 +1736,21 @@ class _MapScreenState extends State<MapScreen>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // App Logo
+                  Center(
+                    child: CircleAvatar(
+                      radius: 40,
+                      backgroundColor: Colors.white,
+                      backgroundImage:
+                          const AssetImage('assets/MapMyCampuslogo.png'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   const Text(
                     'Campus Navigation',
                     style: TextStyle(
                       color: Colors.white,
-                      fontSize: 24,
+                      fontSize: 20, // Slightly smaller to fit logo
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1699,7 +1766,8 @@ class _MapScreenState extends State<MapScreen>
             ),
             ListTile(
               leading: const Icon(Icons.person, color: Colors.white70),
-              title: const Text('Profile', style: TextStyle(color: Colors.white)),
+              title:
+                  const Text('Profile', style: TextStyle(color: Colors.white)),
               onTap: () {
                 Navigator.pop(context); // Close drawer first
                 _showProfileDialog();
@@ -1713,6 +1781,43 @@ class _MapScreenState extends State<MapScreen>
                 Navigator.pop(context); // Close drawer first
                 _showRouteHistoryDialog();
               },
+            ),
+            // Voice Language Section
+            ExpansionTile(
+              leading:
+                  const Icon(Icons.record_voice_over, color: Colors.white70),
+              title: const Text('Voice Language',
+                  style: TextStyle(color: Colors.white)),
+              collapsedIconColor: Colors.white70,
+              iconColor: const Color(0xFF6B73FF),
+              children: [
+                RadioListTile<bool>(
+                  title: const Text('English (Default)',
+                      style: TextStyle(color: Colors.white70)),
+                  value: false,
+                  groupValue: _isMalayalam,
+                  activeColor: const Color(0xFF6B73FF),
+                  onChanged: (val) {
+                    setState(() {
+                      _isMalayalam = val!;
+                      _voiceService.setLanguage(_isMalayalam);
+                    });
+                  },
+                ),
+                RadioListTile<bool>(
+                  title: const Text('Malayalam',
+                      style: TextStyle(color: Colors.white70)),
+                  value: true,
+                  groupValue: _isMalayalam,
+                  activeColor: const Color(0xFF6B73FF),
+                  onChanged: (val) {
+                    setState(() {
+                      _isMalayalam = val!;
+                      _voiceService.setLanguage(_isMalayalam);
+                    });
+                  },
+                ),
+              ],
             ),
             ListTile(
               leading: const Icon(Icons.settings, color: Colors.white70),
@@ -2379,7 +2484,221 @@ class _MapScreenState extends State<MapScreen>
     );
   }
 
+  // ------------ Voice & Floor UI Helpers ------------
+
+  void _speakInstruction(String text) {
+    _voiceService.speak(text);
+  }
+
+  /// Checks if we need to speak a turn instruction based on distance to the next node.
+  void _checkVoiceInstruction(double distToNextNode) {
+    if (currentRoute.isEmpty || _currentRouteIndex >= currentRoute.length - 1)
+      return;
+
+    // Threshold to speak: e.g. 40 units (approx 3-5 meters depending on scale)
+    // You might need to tune this value based on your map scale.
+    // Assuming 1 meter ~ 10-15 units? setting to 60.
+    const double instructionThreshold = 80.0;
+
+    final nextNodeId = currentRoute[_currentRouteIndex + 1];
+
+    // If we are within range and haven't spoken for this node yet
+    if (distToNextNode < instructionThreshold &&
+        _lastSpokenNodeId != nextNodeId) {
+      // Look ahead to determine the turn type
+      // We need the node AFTER the next one to know the angle.
+      if (_currentRouteIndex + 2 < currentRoute.length) {
+        final nextNode = nodes[nextNodeId]!;
+        final afterNextNode = nodes[currentRoute[_currentRouteIndex + 2]]!;
+        final currentNode =
+            nodes[currentRoute[_currentRouteIndex]]!; // or marker position
+
+        // Calculate angle change
+        // Incoming vector (Current -> Next)
+        final inDx = nextNode.x - currentNode.x;
+        final inDy = nextNode.y - currentNode.y;
+        final inAngle = atan2(inDy, inDx);
+
+        // Outgoing vector (Next -> AfterNext)
+        final outDx = afterNextNode.x - nextNode.x;
+        final outDy = afterNextNode.y - nextNode.y;
+        final outAngle = atan2(outDy, outDx);
+
+        var diff = outAngle - inAngle;
+        // Normalize
+        while (diff > pi) diff -= 2 * pi;
+        while (diff <= -pi) diff += 2 * pi;
+
+        String instruction = "Go straight";
+        if (diff > 0.6) {
+          instruction = "Turn right";
+        } else if (diff < -0.6) {
+          instruction = "Turn left";
+        } else if (diff.abs() > 0.3) {
+          instruction = diff > 0 ? "Bear right" : "Bear left";
+        }
+
+        // Don't speak "Go straight" unless it's a confusing intersection,
+        // but for now let's keep it simple or suppress it.
+        if (instruction != "Go straight") {
+          _speakInstruction(instruction);
+        }
+      }
+
+      _lastSpokenNodeId = nextNodeId;
+    }
+  }
+
+  /// Calculates estimated time based on route distance.
+  /// Assumes average walking speed ~1.4 m/s.
+  /// Needs calibration: Assuming 1 meter is roughly 20 pixels for now.
+  void _calculateTimeEstimate(List<String> route) {
+    if (route.isEmpty) return;
+
+    double totalPixels = 0.0;
+    for (int i = 0; i < route.length - 1; i++) {
+      final a = nodes[route[i]]!;
+      final b = nodes[route[i + 1]]!;
+      totalPixels += _distance(Offset(a.x, a.y), Offset(b.x, b.y));
+    }
+
+    // Calibration: Adjust this scale factor based on real-world measurements
+    const double pixelsPerMeter = 20.0;
+    const double walkSpeedMetersPerSec = 1.4;
+
+    double totalMeters = totalPixels / pixelsPerMeter;
+    double totalSeconds = totalMeters / walkSpeedMetersPerSec;
+
+    int minutes = (totalSeconds / 60).floor();
+    int seconds = (totalSeconds % 60).round();
+
+    setState(() {
+      if (minutes > 0) {
+        _estimatedTime = "$minutes min $seconds sec";
+      } else {
+        _estimatedTime = "$seconds sec";
+      }
+      // Add 'Distance' context if needed: "(${totalMeters.round()} m)"
+    });
+  }
+
+  Widget _buildTimeEstimatePopup() {
+    if (_estimatedTime == null) return const SizedBox.shrink();
+
+    return Positioned(
+      bottom: 100, // Above joystick/zoom controls
+      left: 0,
+      right: 0,
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFF6B73FF),
+            borderRadius: BorderRadius.circular(30),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Icon(Icons.timer, color: Colors.white),
+              const SizedBox(width: 8),
+              Text(
+                "Est. Time: $_estimatedTime",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Builds the interactive floor toggle widget.
+  Widget _buildFloorIndicator() {
+    return Positioned(
+      top: 100, // Below nav bar
+      right:
+          16, // Move to right side to avoid overlapping with potential left side elements
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.7),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white24),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.3),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildFloorButton("G", 0),
+            Container(width: 1, height: 20, color: Colors.white24),
+            _buildFloorButton("1", 1),
+            Container(width: 1, height: 20, color: Colors.white24),
+            _buildFloorButton("2", 2),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFloorButton(String label, int floorIndex) {
+    bool isActive = currentFloor == floorIndex;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          // Disable toggle during active navigation
+          if (currentRoute.isNotEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text("Cannot change floors during navigation"),
+              duration: Duration(seconds: 1),
+            ));
+            return;
+          }
+
+          setState(() {
+            currentFloor = floorIndex;
+            currentSvg = _getSvgForFloor(currentFloor);
+            // Optionally update marker position if needed, but usually we just view the map
+          });
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: BoxDecoration(
+            color: isActive ? const Color(0xFF6B73FF) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: isActive ? Colors.white : Colors.white70,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   // ------------ UI ------------
+
   @override
   Widget build(BuildContext context) {
     // Show loading spinner if nodes are not yet loaded
@@ -2405,7 +2724,7 @@ class _MapScreenState extends State<MapScreen>
       final key = (e.from.compareTo(e.to) <= 0)
           ? '${e.from}|||${e.to}'
           : '${e.to}|||${e.from}';
-      
+
       // [Method] contains checks if the key is already in the set.
       if (!seen.contains(key)) {
         seen.add(key);
@@ -2460,7 +2779,8 @@ class _MapScreenState extends State<MapScreen>
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12),
                     ),
                     value: selectedFrom,
                     items: nodes.values
@@ -2473,9 +2793,15 @@ class _MapScreenState extends State<MapScreen>
                               ),
                             ))
                         .toList(),
-                    onChanged: (v) => setState(() => selectedFrom = v),
-                    icon:
-                        const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                    onChanged: (v) {
+                      setState(() => selectedFrom = v);
+                      if (selectedFrom != null && selectedTo != null) {
+                        final route = computePath(selectedFrom!, selectedTo!);
+                        if (route != null) _calculateTimeEstimate(route);
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_drop_down,
+                        color: Colors.white70),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -2494,7 +2820,8 @@ class _MapScreenState extends State<MapScreen>
                         borderRadius: BorderRadius.circular(8),
                         borderSide: BorderSide.none,
                       ),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 12),
+                      contentPadding:
+                          const EdgeInsets.symmetric(horizontal: 12),
                     ),
                     value: selectedTo,
                     items: nodes.values
@@ -2507,9 +2834,15 @@ class _MapScreenState extends State<MapScreen>
                               ),
                             ))
                         .toList(),
-                    onChanged: (v) => setState(() => selectedTo = v),
-                    icon:
-                        const Icon(Icons.arrow_drop_down, color: Colors.white70),
+                    onChanged: (v) {
+                      setState(() => selectedTo = v);
+                      if (selectedFrom != null && selectedTo != null) {
+                        final route = computePath(selectedFrom!, selectedTo!);
+                        if (route != null) _calculateTimeEstimate(route);
+                      }
+                    },
+                    icon: const Icon(Icons.arrow_drop_down,
+                        color: Colors.white70),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -2563,6 +2896,10 @@ class _MapScreenState extends State<MapScreen>
                               style: TextStyle(color: Colors.white)),
                         ));
                       } else {
+                        setState(() {
+                          _estimatedTime =
+                              null; // Hide popup when navigation starts
+                        });
                         setCurrentRoute(route);
                       }
                     },
@@ -2713,8 +3050,10 @@ class _MapScreenState extends State<MapScreen>
                     ],
                   ),
                 ),
+                _buildTimeEstimatePopup(),
                 _buildJoystick(),
                 _buildZoomControls(),
+                _buildFloorIndicator(),
               ],
             ),
           ),

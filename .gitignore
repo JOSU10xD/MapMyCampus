@@ -71,3 +71,4 @@ app.*.map.json
 
 # Environment variables
 .env
+node_modules

@@ -1,0 +1,11 @@
+> [33m9079ba7[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;32mbackup-main-before-push[m[33m, [m[1;32mbackup-before-cleanup[m[33m)[m re
+> [33m293b0f0[m Readme
+[31m|[m < [33m2ac6b9a[m[33m ([m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #1 from JOSU10xD/dev-01
+[31m|[m[31m/[m[33m|[m 
+[31m|[m < [33m99905bb[m[33m ([m[1;31morigin/dev-01[m[33m, [m[1;32mdev-01[m[33m)[m 50 perc-02
+[31m|[m < [33m1c42ff8[m fin-50perc-01
+[31m|[m < [33m6c2162b[m Added second floor+UI tweaks+rollback
+[31m|[m < [33m883e1f6[m[33m ([m[1;31morigin/dev[m[33m, [m[1;32mdev[m[33m)[m UI tweaks+trail+rollback+sidepanel
+[31m|[m < [33m7496f2b[m Dev-01
+[31m|[m[31m/[m  
+o [33m0d3afbd[m Added auto and manual
